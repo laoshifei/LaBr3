@@ -185,6 +185,8 @@ int main(int argc, char *argv[])
       // std::cout << "size " << size << std::endl;
     }
 
+    if(feof(raw_file)) break;
+
     for(int i=0;i<size;i++)  dt[i] = i;
     tr[channel]->Fill();
 
@@ -201,8 +203,6 @@ int main(int argc, char *argv[])
     size = 0;
     memset(&data, 0, sizeof(data));
     memset(&dt, 0, sizeof(dt));
-
-    if(feof(raw_file)) break;
   }
 
   fclose(raw_file);

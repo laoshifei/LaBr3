@@ -1,0 +1,28 @@
+# Experimental data and generated ROOT files
+/data/
+/rootfile/
+*.root
+*.BIN
+*.bin
+
+# Compiled programs; keep the source directories named build
+/DT*/raw2root/raw2root
+/DT*/alignment/alignment
+/DT*/sort/sort
+/DT*/build/build
+*.o
+*.so
+*.d
+*.pcm
+
+# Local calibration copies not read by the alignment programs
+/DT*/alignment/LaBr3_cali.dat
+
+# Local editor and tool files
+/.agents/
+/.codex/
+.vscode/
+.backup/
+*~
+*.swp
+.DS_Store
