@@ -1,7 +1,9 @@
 # Experimental data and generated ROOT files
 /data/
 /rootfile/
+/results/
 *.root
+*.root.partial.*
 *.BIN
 *.bin
 
@@ -14,6 +16,7 @@
 *.so
 *.d
 *.pcm
+__pycache__/
 
 # Local calibration copies not read by the alignment programs
 /DT*/alignment/LaBr3_cali.dat
@@ -22,6 +25,7 @@
 /.agents/
 /.codex/
 .vscode/
+.ipynb_checkpoints/
 .backup/
 *~
 *.swp

@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LaBr3：事件构建修复与回归记录</title>
+<style>
+:root { color-scheme: light; }
+body { margin: 0; background: #f3f5f7; color: #202b36; font: 16px/1.75 system-ui, sans-serif; }
+main { max-width: 1000px; margin: 28px auto; padding: 28px 36px; background: white; border-radius: 10px; }
+h1 { font-size: 1.65rem; line-height: 1.4; }
+a { color: #155f9c; text-underline-offset: 3px; }
+.note { padding: 14px 18px; background: #edf5fc; border-left: 4px solid #3e80b4; }
+.cell { margin: 24px 0; }
+.code-cell { border: 1px solid #dce2e8; border-radius: 6px; overflow: hidden; }
+summary { padding: 10px 14px; cursor: pointer; background: #f4f7f9; font-weight: 600; }
+summary:focus-visible { outline: 2px solid #155f9c; outline-offset: -2px; }
+pre { margin: 0; padding: 16px; overflow-x: auto; font-size: 13px; line-height: 1.6; background: #f8fafb; tab-size: 4; }
+code { font-family: ui-monospace, monospace; }
+p code, li code, td code { background: #eef1f4; padding: 1px 4px; border-radius: 3px; }
+.output { overflow-x: auto; border-top: 1px solid #dce2e8; padding: 12px; }
+.output pre { background: white; padding: 4px; }
+.markdown-cell { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; margin: 12px 0; }
+th, td { padding: 8px 10px; border: 1px solid #dce2e8; text-align: left; vertical-align: top; }
+th { background: #f2f6f9; }
+footer { margin-top: 32px; border-top: 1px solid #dce2e8; padding-top: 12px; font-size: 14px; color: #526271; }
+@media (max-width: 640px) { main { margin: 0; padding: 18px 14px; border-radius: 0; } }
+@media print { body { background: white; } main { margin: 0; max-width: none; padding: 0; } .output pre { white-space: pre-wrap; } }
+</style>
+</head>
+<body>
+<main>
+<h1>LaBr3：事件构建修复与回归记录</h1>
+<p class="note">这是 Notebook 已保存结果的静态浏览版，可直接在浏览器中阅读。点击“查看代码”可展开对应单元；修改或重新运行请打开 <a href="01_event_building_and_regression.ipynb">原始 Notebook</a>。</p>
+
+<section class="cell markdown-cell" id="overview">
+<p><strong>LaBr3：事件构建修复与回归记录</strong></p>
+<p>本笔记记录 2026-09-27 完成的 B-01、B-03 和 P0-01：
+保存小样本基线，明确正确事件分组，并修复三套程序中的末事件遗漏和多重数越界。</p>
+<p>阅读顺序是项目流程、问题与规则、修复前后对比、异常处理、完整回归。
+代码直接调用项目的 <code>tests/</code>，运行实际 C++ 程序，输出可通过“重启内核并运行全部单元”重新生成。</p>
+</section>
+<section class="cell markdown-cell" id="pipeline">
+<p>项目包括 <code>DT5720_DPP_PSD</code>、<code>DT5730_DPP_PHA</code>、<code>DT5730_DPP_PSD</code> 三套实现。</p>
+<table>
+<thead>
+<tr>
+<th>阶段</th>
+<th>输入与输出</th>
+<th>本次关联</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>raw2root</code></td>
+<td>BIN → 按通道保存的 ROOT 树</td>
+<td>保留已有文件结束处理的回归检查</td>
+</tr>
+<tr>
+<td><code>alignment</code></td>
+<td>通道时间戳 → 时间差直方图</td>
+<td>辅助确定时间偏移，后续完善</td>
+</tr>
+<tr>
+<td><code>sort</code></td>
+<td>通道树与参数 → 按时间排序的单条记录</td>
+<td>为 <code>build</code> 提供 <code>board/channel/energy/timestamp</code></td>
+</tr>
+<tr>
+<td><code>build</code></td>
+<td>排序记录 → 含 <code>m</code> 和数组分支的事件树</td>
+<td>本次修复的核心</td>
+</tr>
+<tr>
+<td><code>analysis</code></td>
+<td>事件树 → 时间差分布</td>
+<td>筛选和读取容量问题列入下一任务</td>
+</tr>
+</tbody>
+</table>
+<p>详细配置见 <a href="../README.md">README</a>，后续工作见 <a href="../PLAN.md">PLAN</a>。</p>
+</section>
+<section class="cell markdown-cell" id="execution-guide">
+<p>运行需要 Python 3.8 或更新版本、可导入的 PyROOT、<code>root-config</code>、GNU Make、C++ 编译器和 Git。
+在 Jupyter 中选择能够执行 <code>import ROOT</code> 的 Python 内核，从上到下运行。
+编译和测试可能需要一分钟左右，具体取决于机器。</p>
+<p>默认从当前目录向上定位项目；在其他位置启动内核时，可在下一单元设置 <code>PROJECT_DIR</code>。
+旧版对比需要本地 Git 历史中保留 <code>b096cd8</code>。
+Notebook 使用临时合成输入和临时编译产物，结束后自动清理。</p>
+</section>
+<section class="cell code-cell" id="environment"><details><summary>查看代码 [1]</summary><pre><code>from pathlib import Path
+import hashlib
+import io
+import platform
+import shutil
+import subprocess
+import sys
+import tempfile
+import unittest
+from datetime import datetime, timezone
+from html import escape
+
+PROJECT_DIR = None  # 也可设为项目根目录字符串
+BASELINE_REV = &quot;b096cd8&quot;
+DEMO_VARIANT = &quot;DT5730_DPP_PSD&quot;
+
+if PROJECT_DIR is None:
+    REPO = next((p for p in (Path.cwd(), *Path.cwd().parents)
+                 if (p / &quot;tests/test_build.py&quot;).is_file()
+                 and (p / &quot;DT5730_DPP_PSD/build/Build.cpp&quot;).is_file()), None)
+    if REPO is None:
+        raise RuntimeError(&quot;无法定位项目，请设置 PROJECT_DIR。&quot;)
+else:
+    REPO = Path(PROJECT_DIR).expanduser().resolve()
+    if not (REPO / &quot;tests/test_build.py&quot;).is_file():
+        raise RuntimeError(&quot;PROJECT_DIR 不是包含 tests/ 的 LaBr3 项目目录。&quot;)
+
+for executable in (&quot;root-config&quot;, &quot;make&quot;, &quot;g++&quot;, &quot;git&quot;):
+    if shutil.which(executable) is None:
+        raise RuntimeError(f&quot;缺少命令：{executable}&quot;)
+
+sys.path.insert(0, str(REPO / &quot;tests&quot;))
+from fixtures import Hit, VARIANTS, checked_run, hits_at, read_events, write_sorted
+
+import ROOT
+ROOT.gROOT.SetBatch(True)
+
+watched_files = [REPO / variant / &quot;build&quot; / name
+                 for variant in VARIANTS
+                 for name in (&quot;Build.cpp&quot;, &quot;Build.h&quot;, &quot;main.cpp&quot;, &quot;set.h&quot;)]
+watched_files += [REPO / variant / &quot;raw2root/set.h&quot; for variant in VARIANTS]
+source_hashes_before = {str(p.relative_to(REPO)): hashlib.sha256(p.read_bytes()).hexdigest()
+                        for p in watched_files}
+
+print(&quot;执行时间（UTC）：&quot;, datetime.now(timezone.utc).isoformat(timespec=&quot;seconds&quot;))
+print(&quot;Python：&quot;, platform.python_version())
+print(&quot;ROOT：&quot;, checked_run([&quot;root-config&quot;, &quot;--version&quot;]).stdout.strip())
+print(&quot;当前 HEAD：&quot;, checked_run([&quot;git&quot;, &quot;rev-parse&quot;, &quot;--short&quot;, &quot;HEAD&quot;], cwd=REPO).stdout.strip())
+print(&quot;对比基线：&quot;, BASELINE_REV)
+print(&quot;新版程序使用当前工作区源码；HEAD 编号不包含尚未提交的修改。&quot;)
+</code></pre></details>
+<div class="output"><pre>执行时间（UTC）： 2026-09-27T04:07:56+00:00
+Python： 3.14.4
+ROOT： 6.40.04
+当前 HEAD： b096cd8
+对比基线： b096cd8
+新版程序使用当前工作区源码；HEAD 编号不包含尚未提交的修改。
+</pre></div>
+</section>
+<section class="cell code-cell" id="display-table"><details><summary>查看代码 [2]</summary><pre><code>class ResultTable:
+    def __init__(self, headers, rows):
+        self.headers = headers
+        self.rows = rows
+
+    def __repr__(self):
+        lines = [&quot; | &quot;.join(map(str, self.headers))]
+        lines.extend(&quot; | &quot;.join(map(str, row)) for row in self.rows)
+        return &quot;\n&quot;.join(lines)
+
+    def _repr_html_(self):
+        header = &quot;&quot;.join(f&quot;&lt;th&gt;{escape(str(value))}&lt;/th&gt;&quot; for value in self.headers)
+        rows = &quot;&quot;.join(&quot;&lt;tr&gt;&quot; + &quot;&quot;.join(f&quot;&lt;td&gt;{escape(str(value))}&lt;/td&gt;&quot; for value in row)
+                       + &quot;&lt;/tr&gt;&quot; for row in self.rows)
+        return f&quot;&lt;table&gt;&lt;thead&gt;&lt;tr&gt;{header}&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;{rows}&lt;/tbody&gt;&lt;/table&gt;&quot;
+
+
+ResultTable([&quot;设备配置&quot;, &quot;当前 Build.cpp 的 SHA-256 前 12 位&quot;],
+            [[variant, source_hashes_before[f&quot;{variant}/build/Build.cpp&quot;][:12]]
+             for variant in VARIANTS])
+</code></pre></details>
+<div class="output"><table><thead><tr><th>设备配置</th><th>当前 Build.cpp 的 SHA-256 前 12 位</th></tr></thead><tbody><tr><td>DT5720_DPP_PSD</td><td>0c0dc04e272a</td></tr><tr><td>DT5730_DPP_PHA</td><td>7cc06ffb1e7f</td></tr><tr><td>DT5730_DPP_PSD</td><td>647b25571463</td></tr></tbody></table></div>
+</section>
+<section class="cell markdown-cell" id="problem">
+<p>旧版 <code>Build::Process()</code> 只有在遇到窗口外的下一条记录时才调用 <code>Fill()</code>。
+因此，文件结束时仍留在内存中的最后一个事件不会写入；单记录输入甚至得到零事件。</p>
+<p>原来的容量条件为 <code>ev.m &gt; MAX_MULTI</code>，检查太晚，不能保护第 9 条同窗记录写入长度为 8 的数组。
+此外，空输入和时间戳倒退需要明确处理。</p>
+<p>此前在三套旧程序上运行单记录、末尾符合事件和窗口边界三项检查，共复现 9 次失败。
+下面对 <code>DT5730_DPP_PSD</code> 实际编译新旧两个版本，演示末事件遗漏；最后再对三套配置执行完整回归。</p>
+</section>
+<section class="cell markdown-cell" id="grouping-rule">
+<p>本次保留原有分组定义：时间戳单位为 <strong>ps</strong>，以事件首条记录为基准，
+满足 <code>0 &lt;= t - t_first &lt; 50_000 ps</code> 的记录进入同一事件。</p>
+<table>
+<thead>
+<tr>
+<th>输入时间（ns）</th>
+<th>预期分组</th>
+<th>用途</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>[1]</code></td>
+<td><code>[[1]]</code></td>
+<td>单记录也必须输出</td>
+</tr>
+<tr>
+<td><code>[0, 1, 80, 90]</code></td>
+<td><code>[[0, 1], [80, 90]]</code></td>
+<td>最后一个符合事件必须保留</td>
+</tr>
+<tr>
+<td><code>[0, 49.999, 50, 50.001]</code></td>
+<td><code>[[0, 49.999], [50, 50.001]]</code></td>
+<td>恰好 50 ns 开启新事件</td>
+</tr>
+<tr>
+<td><code>[0, 40, 80]</code></td>
+<td><code>[[0, 40], [80]]</code></td>
+<td>窗口以首记录为基准</td>
+</tr>
+</tbody>
+</table>
+<p>多重数上限为 8。超出容量和时间戳倒退会明确失败，不静默改变分组或舍弃记录。</p>
+</section>
+<section class="cell code-cell" id="example-input"><details><summary>查看代码 [3]</summary><pre><code>example_hits = hits_at([0, 49999, 50000, 50001])
+ResultTable([&quot;记录序号&quot;, &quot;board&quot;, &quot;channel&quot;, &quot;energy&quot;, &quot;timestamp / ps&quot;, &quot;time / ns&quot;],
+            [[i, hit.board, hit.channel, hit.energy, hit.timestamp, hit.timestamp / 1000]
+             for i, hit in enumerate(example_hits)])
+</code></pre></details>
+<div class="output"><table><thead><tr><th>记录序号</th><th>board</th><th>channel</th><th>energy</th><th>timestamp / ps</th><th>time / ns</th></tr></thead><tbody><tr><td>0</td><td>1</td><td>0</td><td>0.125</td><td>0</td><td>0.0</td></tr><tr><td>1</td><td>2</td><td>1</td><td>1.125</td><td>49999</td><td>49.999</td></tr><tr><td>2</td><td>3</td><td>2</td><td>2.125</td><td>50000</td><td>50.0</td></tr><tr><td>3</td><td>4</td><td>3</td><td>3.125</td><td>50001</td><td>50.001</td></tr></tbody></table></div>
+</section>
+<section class="cell markdown-cell" id="implementation">
+<p>修复同步应用于三套 <code>build/Build.cpp</code>、<code>Build.h</code> 和 <code>main.cpp</code>：</p>
+<ol>
+<li>从第 0 条记录正常迭代，空树保持零事件；循环结束后补写非空末事件。</li>
+<li>先判断是否开启新窗口，再在追加前检查 <code>ev.m &gt;= MAX_MULTI</code>，使“8 重后开启新事件”仍正常。</li>
+<li>检查时间戳顺序，用整数 ps 比较窗口，并处理有符号时间戳的极端跨度。</li>
+<li>检查输入文件、树、标量分支类型和读取结果；通过异常和非零退出码报告失败。</li>
+<li>先写同目录下的临时文件，完整写入并关闭后才改名为最终输出。失败时清理临时文件，保留已有输出。</li>
+</ol>
+<p>代码示例见 <a href="../DT5730_DPP_PSD/build/Build.cpp">PSD Build.cpp</a>。</p>
+</section>
+<section class="cell code-cell" id="demo-helpers"><details><summary>查看代码 [4]</summary><pre><code>DEMO_CASES = [
+    (&quot;单记录&quot;, [1000], [[0]]),
+    (&quot;最后一个符合事件&quot;, [0, 1000, 80000, 90000], [[0, 1], [2, 3]]),
+    (&quot;50 ns 边界&quot;, [0, 49999, 50000, 50001], [[0, 1], [2, 3]]),
+    (&quot;首记录窗口&quot;, [0, 40000, 80000], [[0, 1], [2]]),
+]
+
+
+def run_sample(binary, directory, hits, previous_output=None):
+    build_dir = directory / &quot;build&quot;
+    build_dir.mkdir(parents=True)
+    write_sorted(directory / &quot;sort/run0001_sort.root&quot;, hits)
+    output = build_dir / &quot;run0001_build.root&quot;
+    if previous_output is not None:
+        output.write_bytes(previous_output)
+    process = subprocess.run([str(binary), &quot;1&quot;], cwd=build_dir,
+                             capture_output=True, text=True, timeout=30)
+    return process, output
+
+
+def times_in_events(events):
+    return [[hit.timestamp for hit in event] for event in events]
+</code></pre></details>
+</section>
+<section class="cell markdown-cell" id="comparison-method">
+<p>下一单元从 Git 对象读取旧版源码到临时目录，再通过原有 Makefile 编译新旧版本。
+它不会切换工作区分支。预期分组直接列在 <code>DEMO_CASES</code> 中；当前版本需要通过字段、分组和记录守恒断言。
+同一单元还检查超容量和乱序的失败结果，以及既有输出是否保留。</p>
+</section>
+<section class="cell code-cell" id="run-comparison"><details><summary>查看代码 [5]</summary><pre><code>comparison_rows = []
+failure_rows = []
+
+with tempfile.TemporaryDirectory(prefix=&quot;labr3-notebook-&quot;) as temporary:
+    work = Path(temporary)
+    old_source = work / &quot;baseline_source&quot;
+    old_source.mkdir()
+    for name in (&quot;Build.cpp&quot;, &quot;Build.h&quot;, &quot;main.cpp&quot;, &quot;set.h&quot;, &quot;Makefile&quot;):
+        result = checked_run(
+            [&quot;git&quot;, &quot;show&quot;, f&quot;{BASELINE_REV}:{DEMO_VARIANT}/build/{name}&quot;], cwd=REPO)
+        (old_source / name).write_text(result.stdout)
+
+    old_binary = work / &quot;build_baseline&quot;
+    current_binary = work / &quot;build_current&quot;
+    checked_run([&quot;make&quot;, &quot;-B&quot;, &quot;-C&quot;, str(old_source), f&quot;out={old_binary}&quot;])
+    checked_run([&quot;make&quot;, &quot;-B&quot;, &quot;-C&quot;, str(REPO / DEMO_VARIANT / &quot;build&quot;),
+                 f&quot;out={current_binary}&quot;])
+
+    for index, (label, timestamps, groups) in enumerate(DEMO_CASES):
+        hits = hits_at(timestamps)
+        expected = [[hits[i] for i in group] for group in groups]
+        observed = {}
+        for version, binary in ((&quot;旧版&quot;, old_binary), (&quot;当前版本&quot;, current_binary)):
+            process, output = run_sample(binary, work / f&quot;case_{index}_{version}&quot;, hits)
+            assert process.returncode == 0, process.stdout + process.stderr
+            _, _, events = read_events(output)
+            observed[version] = events
+            if version == &quot;当前版本&quot;:
+                assert events == expected
+                assert sum(map(len, events)) == len(hits)
+        comparison_rows.append([
+            label, len(hits), times_in_events(expected),
+            times_in_events(observed[&quot;旧版&quot;]), times_in_events(observed[&quot;当前版本&quot;]),
+            &quot;通过&quot;,
+        ])
+
+    for index, (label, timestamps, message, preserve) in enumerate([
+        (&quot;同窗第 9 条记录&quot;, [0] * 9, &quot;multiplicity&quot;, False),
+        (&quot;窗口内时间倒退&quot;, [0, 40000, 30000], &quot;not sorted&quot;, False),
+        (&quot;失败保留已有输出&quot;, [0] + [60000] * 9, &quot;multiplicity&quot;, True),
+    ]):
+        previous = b&quot;existing output sentinel&quot; if preserve else None
+        process, output = run_sample(current_binary, work / f&quot;failure_{index}&quot;,
+                                     hits_at(timestamps), previous)
+        assert process.returncode &gt; 0, process.stdout + process.stderr
+        assert message in process.stderr.lower()
+        if preserve:
+            assert output.read_bytes() == previous
+        else:
+            assert not output.exists()
+        assert not list(output.parent.glob(&quot;*.partial.*&quot;))
+        failure_rows.append([
+            label, process.returncode, process.stderr.strip().splitlines()[-1],
+            &quot;已有文件保留&quot; if preserve else &quot;未发布最终文件&quot;, &quot;已清理&quot;,
+        ])
+
+ResultTable([&quot;样本&quot;, &quot;输入记录数&quot;, &quot;预期分组 / ps&quot;, &quot;旧版实际输出 / ps&quot;,
+             &quot;当前实际输出 / ps&quot;, &quot;当前版本断言&quot;], comparison_rows)
+</code></pre></details>
+<div class="output"><table><thead><tr><th>样本</th><th>输入记录数</th><th>预期分组 / ps</th><th>旧版实际输出 / ps</th><th>当前实际输出 / ps</th><th>当前版本断言</th></tr></thead><tbody><tr><td>单记录</td><td>1</td><td>[[1000]]</td><td>[]</td><td>[[1000]]</td><td>通过</td></tr><tr><td>最后一个符合事件</td><td>4</td><td>[[0, 1000], [80000, 90000]]</td><td>[[0, 1000]]</td><td>[[0, 1000], [80000, 90000]]</td><td>通过</td></tr><tr><td>50 ns 边界</td><td>4</td><td>[[0, 49999], [50000, 50001]]</td><td>[[0, 49999]]</td><td>[[0, 49999], [50000, 50001]]</td><td>通过</td></tr><tr><td>首记录窗口</td><td>3</td><td>[[0, 40000], [80000]]</td><td>[[0, 40000]]</td><td>[[0, 40000], [80000]]</td><td>通过</td></tr></tbody></table></div>
+</section>
+<section class="cell markdown-cell" id="comparison-observation">
+<p>上表展示的是实际 ROOT 输出。当前版本需要完整保留显式预期的最后一个事件；
+旧版输出用于展示缺陷，不参与确定正确答案。能量、板号、通道和时间戳的逐项断言也已经执行。</p>
+</section>
+<section class="cell code-cell" id="failure-results"><details><summary>查看代码 [6]</summary><pre><code>ResultTable([&quot;样本&quot;, &quot;退出码&quot;, &quot;诊断&quot;, &quot;最终文件&quot;, &quot;临时文件&quot;], failure_rows)
+</code></pre></details>
+<div class="output"><table><thead><tr><th>样本</th><th>退出码</th><th>诊断</th><th>最终文件</th><th>临时文件</th></tr></thead><tbody><tr><td>同窗第 9 条记录</td><td>1</td><td>build failed: multiplicity exceeds MAX_MULTI (8) at input entry 8</td><td>未发布最终文件</td><td>已清理</td></tr><tr><td>窗口内时间倒退</td><td>1</td><td>build failed: timestamps are not sorted at input entry 2</td><td>未发布最终文件</td><td>已清理</td></tr><tr><td>失败保留已有输出</td><td>1</td><td>build failed: multiplicity exceeds MAX_MULTI (8) at input entry 9</td><td>已有文件保留</td><td>已清理</td></tr></tbody></table></div>
+</section>
+<section class="cell markdown-cell" id="full-regression">
+<p>接下来复用整个 <code>tests/</code> 回归入口，对三套设备配置分别检查。
+当前包含 22 项事件构建检查和 4 项 BIN 文件结束检查。</p>
+<p>覆盖空输入、末事件、容量边界、时间窗口与顺序、大时间戳、字段和类型、
+输入错误、失败文件处理，以及原始转换中的空记录、单记录、多记录和截断末记录。
+BIN 检查仅涵盖当前道址能量格式；其截断末记录仍是丢弃后正常退出，后续由 P0-03 完善。</p>
+</section>
+<section class="cell code-cell" id="run-full-suite"><details><summary>查看代码 [7]</summary><pre><code>class DeviceCountingResult(unittest.TextTestResult):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.device_cases = 0
+
+    def addSubTest(self, test, subtest, error):
+        self.device_cases += 1
+        super().addSubTest(test, subtest, error)
+
+
+suite = unittest.TestLoader().discover(str(REPO / &quot;tests&quot;), pattern=&quot;test_*.py&quot;)
+report = io.StringIO()
+test_result = unittest.TextTestRunner(
+    stream=report, verbosity=2, resultclass=DeviceCountingResult
+).run(suite)
+print(report.getvalue())
+assert test_result.wasSuccessful(), &quot;回归失败，请查看上方实际日志。&quot;
+</code></pre></details>
+<div class="output"><pre>test_eight_hits (test_build.BuildTests.test_eight_hits) ... ok
+test_eight_hits_followed_by_new_window (test_build.BuildTests.test_eight_hits_followed_by_new_window) ... ok
+test_empty_tree (test_build.BuildTests.test_empty_tree) ... ok
+test_equal_timestamps (test_build.BuildTests.test_equal_timestamps) ... ok
+test_failure_preserves_existing_output (test_build.BuildTests.test_failure_preserves_existing_output) ... ok
+test_final_coincidence (test_build.BuildTests.test_final_coincidence) ... ok
+test_final_single (test_build.BuildTests.test_final_single) ... ok
+test_large_timestamps_preserve_picoseconds (test_build.BuildTests.test_large_timestamps_preserve_picoseconds) ... ok
+test_missing_branch (test_build.BuildTests.test_missing_branch) ... ok
+test_missing_input (test_build.BuildTests.test_missing_input) ... ok
+test_missing_tree (test_build.BuildTests.test_missing_tree) ... ok
+test_nine_hits_fail (test_build.BuildTests.test_nine_hits_fail) ... ok
+test_out_of_order_across_windows (test_build.BuildTests.test_out_of_order_across_windows) ... ok
+test_out_of_order_within_window (test_build.BuildTests.test_out_of_order_within_window) ... ok
+test_output_publish_failure (test_build.BuildTests.test_output_publish_failure) ... ok
+test_overflow_after_completed_event (test_build.BuildTests.test_overflow_after_completed_event) ... ok
+test_signed_timestamp_span (test_build.BuildTests.test_signed_timestamp_span) ... ok
+test_single_record (test_build.BuildTests.test_single_record) ... ok
+test_strict_window_boundary (test_build.BuildTests.test_strict_window_boundary) ... ok
+test_success_replaces_existing_output (test_build.BuildTests.test_success_replaces_existing_output) ... ok
+test_window_uses_first_hit (test_build.BuildTests.test_window_uses_first_hit) ... ok
+test_wrong_branch_type (test_build.BuildTests.test_wrong_branch_type) ... ok
+test_multiple_records (test_raw2root.RawConversionTests.test_multiple_records) ... ok
+test_no_records (test_raw2root.RawConversionTests.test_no_records) ... ok
+test_single_record (test_raw2root.RawConversionTests.test_single_record) ... ok
+test_truncated_last_record (test_raw2root.RawConversionTests.test_truncated_last_record) ... ok
+
+----------------------------------------------------------------------
+Ran 26 tests in 38.114s
+
+OK
+
+</pre></div>
+</section>
+<section class="cell code-cell" id="regression-summary"><details><summary>查看代码 [8]</summary><pre><code>ResultTable([&quot;指标&quot;, &quot;本次实际运行结果&quot;], [
+    [&quot;测试方法数&quot;, test_result.testsRun],
+    [&quot;设备用例数&quot;, test_result.device_cases],
+    [&quot;失败数&quot;, len(test_result.failures)],
+    [&quot;错误数&quot;, len(test_result.errors)],
+    [&quot;跳过数&quot;, len(test_result.skipped)],
+    [&quot;整体状态&quot;, &quot;通过&quot; if test_result.wasSuccessful() else &quot;失败&quot;],
+])
+</code></pre></details>
+<div class="output"><table><thead><tr><th>指标</th><th>本次实际运行结果</th></tr></thead><tbody><tr><td>测试方法数</td><td>26</td></tr><tr><td>设备用例数</td><td>78</td></tr><tr><td>失败数</td><td>0</td></tr><tr><td>错误数</td><td>0</td></tr><tr><td>跳过数</td><td>0</td></tr><tr><td>整体状态</td><td>通过</td></tr></tbody></table></div>
+</section>
+<section class="cell code-cell" id="verify-source-preserved"><details><summary>查看代码 [9]</summary><pre><code>source_hashes_after = {str(p.relative_to(REPO)): hashlib.sha256(p.read_bytes()).hexdigest()
+                       for p in watched_files}
+assert source_hashes_before == source_hashes_after, &quot;运行期间源码或配置发生了变化。&quot;
+print(&quot;验证完成：示例编译和测试没有修改被检查的项目源码及机器路径配置。&quot;)
+</code></pre></details>
+<div class="output"><pre>验证完成：示例编译和测试没有修改被检查的项目源码及机器路径配置。
+</pre></div>
+</section>
+<section class="cell markdown-cell" id="next-steps">
+<p>本笔记记录小样本程序行为，完整真实实验数据链和物理结果仍待验证。
+截至本次修复，B-01、B-03 和 P0-01 已完成，P0-06 仅完成 <code>build</code> 相关部分。</p>
+<p>下一项是 P0-02：修复 PSD 能量筛选失败后仍填图的问题，并安全读取超过 2 重的事件。
+真实样本来源、刻度适用范围及完整实验分析继续按 <a href="../PLAN.md">PLAN</a> 推进。
+Notebook 的后续重跑反映执行时的工作区状态，具体环境、源码摘要与结果以上面的实际输出为准。</p>
+</section>
+<footer>保存结果的验证时间（UTC）：2026-09-27T04:08:42+00:00。本页面读取 Notebook 中的现有输出生成。</footer></main></body></html>
