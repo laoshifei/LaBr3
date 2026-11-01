@@ -1,11 +1,12 @@
 """Run the real build executables against explicit event-grouping examples."""
 
 from pathlib import Path
+import os
 import subprocess
 import tempfile
 import unittest
 
-from fixtures import REPO, VARIANTS, checked_run, hits_at, read_events, write_sorted
+from fixtures import ROOT, Hit, REPO, VARIANTS, checked_run, hits_at, read_events, write_sorted
 
 
 class BuildTests(unittest.TestCase):
@@ -31,16 +32,16 @@ class BuildTests(unittest.TestCase):
             write_sorted(directory / "sort/run0001_sort.root", hits, **fixture_options)
         return build_dir, build_dir / "run0001_build.root"
 
-    def execute(self, variant, build_dir):
-        return subprocess.run([str(self.executables[variant]), "1"], cwd=build_dir,
+    def execute(self, variant, build_dir, arguments=("1",)):
+        return subprocess.run([str(self.executables[variant]), *arguments], cwd=build_dir,
                               capture_output=True, text=True, timeout=30)
 
-    def assert_grouping(self, timestamps, groups, replace_existing=False):
+    def assert_grouping(self, timestamps, groups, replace_existing=False, **fixture_options):
         hits = hits_at(timestamps)
         expected = [[hits[i] for i in group] for group in groups]
         for variant in VARIANTS:
             with self.subTest(variant=variant):
-                directory, output = self.run_case(variant, hits)
+                directory, output = self.run_case(variant, hits, **fixture_options)
                 if replace_existing:
                     output.write_bytes(b"previous output")
                 result = self.execute(variant, directory)
@@ -56,8 +57,8 @@ class BuildTests(unittest.TestCase):
                 self.assertEqual(list(directory.glob("*.partial.*")), [])
 
     def assert_failure(self, timestamps, diagnostic, preserve_existing=False,
-                       output_is_directory=False, **fixture_options):
-        hits = None if timestamps is None else hits_at(timestamps)
+                       output_is_directory=False, input_hits=None, **fixture_options):
+        hits = input_hits if input_hits is not None else (None if timestamps is None else hits_at(timestamps))
         for variant in VARIANTS:
             with self.subTest(variant=variant):
                 directory, output = self.run_case(variant, hits, **fixture_options)
@@ -140,8 +141,71 @@ class BuildTests(unittest.TestCase):
     def test_wrong_branch_type(self):
         self.assert_failure([0], "energy", wrong_energy_type=True)
 
+    def test_multileaf_scalar_branch_is_rejected(self):
+        for timestamps in ([], [0]):
+            with self.subTest(timestamps=timestamps):
+                self.assert_failure(timestamps, "invalid scalar branch timestamp", multileaf_timestamp=True)
+
     def test_output_publish_failure(self):
         self.assert_failure([0], "cannot publish output", output_is_directory=True)
+
+    def test_invalid_channels(self):
+        for channel in (-1, 8):
+            with self.subTest(channel=channel):
+                self.assert_failure([], "invalid channel", input_hits=[Hit(1, channel, 100., 0)],
+                                    preserve_existing=True)
+
+    def test_nonfinite_energy(self):
+        for energy in (float("nan"), float("inf"), -float("inf")):
+            with self.subTest(energy=energy):
+                self.assert_failure([], "non-finite energy", input_hits=[Hit(1, 2, energy, 0)],
+                                    preserve_existing=True)
+
+    def test_unneeded_waveforms_are_ignored(self):
+        self.assert_grouping([0, 1000, 50000], [[0, 1], [2]], waveform=True)
+
+    def test_corrupt_input_and_non_tree_object(self):
+        for variant in VARIANTS:
+            for kind in ("corrupt", "object"):
+                with self.subTest(variant=variant, kind=kind):
+                    directory, output = self.run_case(variant, [])
+                    source = directory.parent / "sort/run0001_sort.root"
+                    if kind == "corrupt":
+                        source.write_bytes(b"not a ROOT file")
+                    else:
+                        root = ROOT.TFile(str(source), "RECREATE")
+                        ROOT.TNamed("tr", "not a tree").Write()
+                        root.Close()
+                    result = self.execute(variant, directory)
+                    self.assertGreater(result.returncode, 0)
+                    self.assertIn("cannot open input" if kind == "corrupt" else "missing tree", result.stderr)
+                    self.assertFalse(output.exists())
+
+    @unittest.skipIf(os.geteuid() == 0, "requires normal filesystem permission checks")
+    def test_unwritable_output_directory(self):
+        for variant in VARIANTS:
+            with self.subTest(variant=variant):
+                directory, output = self.run_case(variant, hits_at([0]))
+                output.write_bytes(b"previous output")
+                directory.chmod(0o555)
+                try:
+                    result = self.execute(variant, directory)
+                finally:
+                    directory.chmod(0o755)
+                self.assertGreater(result.returncode, 0)
+                self.assertIn("cannot create output", result.stderr)
+                self.assertEqual(output.read_bytes(), b"previous output")
+                self.assertEqual(list(directory.glob("*.partial.*")), [])
+
+    def test_invalid_run_number(self):
+        for variant in VARIANTS:
+            for arguments in ((), ("abc",), ("-1",), ("2147483648",)):
+                with self.subTest(variant=variant, arguments=arguments):
+                    directory, output = self.run_case(variant, [])
+                    result = self.execute(variant, directory, arguments)
+                    self.assertGreater(result.returncode, 0)
+                    self.assertIn("usage:" if not arguments else "invalid run number", result.stderr)
+                    self.assertFalse(output.exists())
 
 
 if __name__ == "__main__":

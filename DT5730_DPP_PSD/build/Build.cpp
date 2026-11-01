@@ -3,6 +3,7 @@
 #include "TLeaf.h"
 
 #include <cerrno>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -29,13 +30,16 @@ Build::Build(const std::string &filename_in, const std::string &filename_out)
   for(const auto &branch : branches){
     TBranch *input_branch = tr_in->GetBranch(branch.name);
     TLeaf *leaf = input_branch ? input_branch->GetLeaf(branch.name) : nullptr;
-    if(!leaf || std::string(leaf->GetTypeName()) != branch.type ||
+    if(!leaf || input_branch->GetListOfLeaves()->GetEntriesFast() != 1 ||
+       std::string(leaf->GetTypeName()) != branch.type ||
        leaf->GetLeafCount() || leaf->GetLenStatic() != 1){
       throw std::runtime_error(std::string("missing or invalid scalar branch ") +
                                branch.name + " in " + filename_in);
     }
   }
 
+  tr_in->SetBranchStatus("*", 0);
+  for(const auto &branch : branches) tr_in->SetBranchStatus(branch.name, 1);
   if(tr_in->SetBranchAddress("board", &da.board) < 0 ||
      tr_in->SetBranchAddress("channel", &da.channel) < 0 ||
      tr_in->SetBranchAddress("energy", &da.energy) < 0 ||
@@ -96,6 +100,12 @@ void Build::Process()
   for(Long64_t i = 0; i < entries; ++i){
     if(tr_in->GetEntry(i) <= 0){
       throw std::runtime_error("cannot read input entry " + std::to_string(i));
+    }
+    if(da.channel < 0 || da.channel >= 8){
+      throw std::runtime_error("invalid channel at input entry " + std::to_string(i));
+    }
+    if(!std::isfinite(da.energy)){
+      throw std::runtime_error("non-finite energy at input entry " + std::to_string(i));
     }
     if(i > 0 && da.timestamp < previous_timestamp){
       throw std::runtime_error("timestamps are not sorted at input entry " +

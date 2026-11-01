@@ -118,6 +118,37 @@ class AnalysisTests(unittest.TestCase):
         result = ROOT.labr3.Analyze(reader, ROOT.labr3.AnalysisConfig())
         self.assertEqual(result.selected_pairs, 2)
 
+    def test_missing_and_corrupt_files_are_rejected(self):
+        with self.assertRaisesRegex(Exception, "Cannot open"):
+            ROOT.labr3.EventReader(str(self.path))
+        self.path.write_bytes(b"not a ROOT file")
+        with self.assertRaisesRegex(Exception, "Cannot open"):
+            ROOT.labr3.EventReader(str(self.path))
+
+    def test_missing_event_tree_is_rejected(self):
+        for name in ("metadata", "tr"):
+            with self.subTest(name=name):
+                source = ROOT.TFile(str(self.path), "RECREATE")
+                ROOT.TNamed(name, "not an event tree").Write()
+                source.Close()
+                with self.assertRaisesRegex(Exception, "Missing event tree"):
+                    ROOT.labr3.EventReader(str(self.path))
+
+    def test_invalid_channel_is_rejected(self):
+        for channel in (-1, 8):
+            with self.subTest(channel=channel), self.assertRaisesRegex(Exception, "channel"):
+                self.analyze([[Hit(0, channel, 1., 0)]])
+
+    def test_chain_rejects_invalid_schema_in_later_file(self):
+        second = self.path.with_name("second.root")
+        write_built(self.path, [pair()])
+        write_built(second, [pair()], omit="timestamp")
+        chain = ROOT.TChain("tr")
+        chain.Add(str(self.path)); chain.Add(str(second))
+        reader = ROOT.labr3.EventReader(chain)
+        with self.assertRaises(Exception):
+            ROOT.labr3.Analyze(reader, ROOT.labr3.AnalysisConfig())
+
 
 class LegacyMacroTests(unittest.TestCase):
     @classmethod

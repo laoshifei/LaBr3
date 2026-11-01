@@ -2,6 +2,7 @@
 
 from dataclasses import replace
 from pathlib import Path
+import os
 import re
 import shutil
 import struct
@@ -232,6 +233,25 @@ class RawConversionTests(unittest.TestCase):
                         self.assertGreater(result.returncode, 0)
                         self.assertIn("raw2root:", result.stderr)
                         self.assertEqual(list(Path(directory).iterdir()), [])
+
+    @unittest.skipIf(os.geteuid() == 0, "requires normal filesystem permission checks")
+    def test_unwritable_output_directory(self):
+        write_bin(self.input_path, [Hit(1, 2, 1234, 123456)])
+        for variant in VARIANTS:
+            with self.subTest(variant=variant):
+                with tempfile.TemporaryDirectory(prefix="output-", dir=self.work) as temporary:
+                    directory = Path(temporary)
+                    output = directory / "run0001.root"
+                    output.write_bytes(b"previous output")
+                    directory.chmod(0o555)
+                    try:
+                        result = self.run_conversion(variant, directory)
+                    finally:
+                        directory.chmod(0o755)
+                    self.assertGreater(result.returncode, 0)
+                    self.assertIn("cannot create output", result.stderr)
+                    self.assertEqual(output.read_bytes(), b"previous output")
+                    self.assertEqual(list(directory.glob("*.partial.*")), [])
 
 
 if __name__ == "__main__":

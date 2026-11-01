@@ -35,20 +35,27 @@ def checked_run(command, cwd=None):
     return result
 
 
-def write_sorted(path, hits, tree_name="tr", omit=None, wrong_energy_type=False):
+def write_sorted(path, hits, tree_name="tr", omit=None, wrong_energy_type=False, waveform=False,
+                 multileaf_timestamp=False):
     """Write scalar hits with the schema consumed by build."""
     path.parent.mkdir(parents=True, exist_ok=True)
     output = ROOT.TFile(str(path), "RECREATE")
     tree = ROOT.TTree(tree_name, "synthetic sorted hits")
     buffers = {"board": array("h", [0]), "channel": array("h", [0]),
                "energy": array("i" if wrong_energy_type else "d", [0]),
-               "timestamp": array("q", [0])}
+               "timestamp": array("q", [0] * (2 if multileaf_timestamp else 1))}
     types = {"board": "S", "channel": "S", "energy": "I" if wrong_energy_type else "D",
              "timestamp": "L"}
     try:
         for name, buffer in buffers.items():
             if name != omit:
-                tree.Branch(name, buffer, f"{name}/{types[name]}")
+                extra = ":extra/L" if name == "timestamp" and multileaf_timestamp else ""
+                tree.Branch(name, buffer, f"{name}/{types[name]}{extra}")
+        if waveform:
+            size = array("I", [10001])
+            samples = array("h", [7] * 10001)
+            tree.Branch("size", size, "size/i")
+            tree.Branch("data", samples, "data[size]/S")
         for hit in hits:
             for name, buffer in buffers.items():
                 value = getattr(hit, name)
@@ -168,5 +175,65 @@ def read_raw_hits(path):
                 result.append(Hit(int(entry.board), int(entry.channel),
                                   int(entry.energy_ch), int(entry.timestamp)))
         return result
+    finally:
+        source.Close()
+
+
+def write_channel_hits(path, hits, omit=None, wrong_energy_type=False,
+                       tree_channel=None, waveform=False, empty_channels=(),
+                       wrong_timestamp_type=False, array_timestamp=False, tree_name=None,
+                       multileaf_timestamp=False):
+    """Write raw per-channel trees for sorting, including deliberate bad schemas."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    output = ROOT.TFile(str(path), "RECREATE")
+    groups = {}
+    for hit in hits:
+        groups.setdefault(hit.channel if tree_channel is None else tree_channel, []).append(hit)
+    for channel in empty_channels:
+        groups.setdefault(channel, [])
+    buffers = {"board": array("h", [0]), "channel": array("h", [0]),
+               "energy_ch": array("d" if wrong_energy_type else "H", [0]),
+               "timestamp": array("d" if wrong_timestamp_type else "q",
+                                  [0] * (2 if array_timestamp or multileaf_timestamp else 1))}
+    types = {"board": "S", "channel": "S", "energy_ch": "D" if wrong_energy_type else "s",
+             "timestamp": "D" if wrong_timestamp_type else "L"}
+    size = array("I", [10001])
+    samples = array("h", [7] * 10001)
+    try:
+        for channel, records in groups.items():
+            tree = ROOT.TTree(tree_name or f"tr_ch{channel:02d}", "synthetic channel hits")
+            for name, buffer in buffers.items():
+                if name != omit:
+                    shape = "[2]" if name == "timestamp" and array_timestamp else ""
+                    extra = ":extra/L" if name == "timestamp" and multileaf_timestamp else ""
+                    tree.Branch(name, buffer, f"{name}{shape}/{types[name]}{extra}")
+            if waveform:
+                tree.Branch("size", size, "size/i")
+                tree.Branch("data", samples, "data[size]/S")
+                tree.Branch("dt", samples, "dt[size]/S")
+            for hit in records:
+                buffers["board"][0] = hit.board
+                buffers["channel"][0] = hit.channel
+                buffers["energy_ch"][0] = hit.energy if wrong_energy_type else int(hit.energy)
+                buffers["timestamp"][0] = hit.timestamp
+                tree.Fill()
+            tree.Write()
+    finally:
+        output.Close()
+
+
+def read_sorted_hits(path):
+    source = ROOT.TFile.Open(str(path), "READ")
+    if not source or source.IsZombie():
+        raise AssertionError(f"Cannot read output: {path}")
+    try:
+        tree = source.Get("tr")
+        if not tree:
+            raise AssertionError(f"Missing sorted tree: {path}")
+        types = {name: tree.GetLeaf(name).GetTypeName()
+                 for name in ("board", "channel", "energy", "timestamp")}
+        hits = [Hit(int(row.board), int(row.channel), float(row.energy), int(row.timestamp))
+                for row in tree]
+        return str(tree.GetTitle()), types, hits
     finally:
         source.Close()

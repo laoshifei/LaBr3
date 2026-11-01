@@ -1,30 +1,31 @@
 #include "Sort.h"
 
+#include <cerrno>
+#include <cstdlib>
 #include <iostream>
-#include <fstream>
-#include <assert.h>
-#include <stdlib.h>
-
+#include <limits>
+#include <stdexcept>
 #include "TString.h"
 
 int main(int argc, char const *argv[])
 {
-  if(argc != 2){
-    std::cout << "need parameter" << std::endl;
-    std::cout << "like: sort 33" << std::endl;
-    return -1;
+  try{
+    if(argc != 2) throw std::runtime_error("usage: sort RUN_NUMBER");
+    char *end = nullptr;
+    errno = 0;
+    const long run = std::strtol(argv[1], &end, 10);
+    if(errno || end == argv[1] || *end != '\0' ||
+       run < 0 || run > std::numeric_limits<int>::max()){
+      throw std::runtime_error("invalid run number");
+    }
+    const std::string input = TString::Format("../raw2root/run%04d.root", static_cast<int>(run)).Data();
+    const std::string output = TString::Format("./run%04d_sort.root", static_cast<int>(run)).Data();
+    std::cout << "sort " << input << std::endl;
+    Sort sorter(input, output);
+    sorter.Process();
+    return 0;
+  } catch(const std::exception &error){
+    std::cerr << "sort: " << error.what() << std::endl;
+    return 1;
   }
-
-  int run = atoi(argv[1]);
-  TString file_in = TString::Format("../raw2root/run%04d.root", run);
-  std::cout << "sort " << file_in << std::endl;
-  
-  TString file_out = TString::Format("./run%04d_sort.root", run);
-
-  Sort *so = new Sort(file_in.Data(), file_out.Data());
-  so->Process();
-
-  delete so;
-
-  return 0;
 }
