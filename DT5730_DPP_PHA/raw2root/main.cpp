@@ -16,6 +16,7 @@
 #include "TTree.h"
 
 #include "set.h"
+#include "../../common/StageReport.h"
 #include "../../common/CommandLine.h"
 
 namespace {
@@ -187,6 +188,7 @@ void Convert(const std::string &raw_name, const std::string &output_name)
   output.reset();
   pending.Publish(output_name);
   std::cout << "converted " << n << " records" << std::endl;
+  labr3::ReportStageCounts("raw2root", {{"input_records", std::uint64_t(n)}, {"output_hits", std::uint64_t(n)}});
 }
 
 }  // namespace

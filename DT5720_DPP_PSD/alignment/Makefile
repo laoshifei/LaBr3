@@ -1,6 +1,6 @@
 out = alignment
 
-sourcefile = main.cpp Alignment.h Alignment.cpp set.h ../../common/CommandLine.h
+sourcefile = main.cpp Alignment.h Alignment.cpp set.h ../../common/CommandLine.h ../../common/StageReport.h
 
 ROOT_CONFIG ?= root-config
 ROOTCFLAGS  = $(shell "$(ROOT_CONFIG)" --cflags)

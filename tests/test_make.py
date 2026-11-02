@@ -8,6 +8,7 @@ import subprocess
 import sys
 import tempfile
 import textwrap
+import time
 import unittest
 
 
@@ -26,7 +27,8 @@ class MakeTests(unittest.TestCase):
         self.repo.mkdir()
         shutil.copyfile(REPO / "Makefile", self.repo / "Makefile")
         (self.repo / "common").mkdir()
-        shutil.copyfile(REPO / "common/CommandLine.h", self.repo / "common/CommandLine.h")
+        for name in ("CommandLine.h", "StageReport.h"):
+            shutil.copyfile(REPO / "common" / name, self.repo / "common" / name)
         for program in PROGRAMS:
             destination = self.repo / program
             destination.mkdir(parents=True)
@@ -134,18 +136,27 @@ class MakeTests(unittest.TestCase):
         self.assertEqual(len(self.compiled()), 5)
 
     def test_source_makefile_and_common_header_trigger_rebuilds(self):
+        # Control the ordering explicitly: rapid writes may share an mtime on
+        # coarse filesystems or VMs. All times stay in the past to avoid skew.
+        baseline = time.time_ns() - 3600 * 10**9
+        for path in self.repo.rglob("*"):
+            if path.is_file():
+                os.utime(path, ns=(baseline, baseline))
         self.assert_success(self.make("-j4"))
-        for relative in ("DT5730_DPP_PSD/raw2root/main.cpp", "DT5730_DPP_PSD/raw2root/Makefile"):
+        dependencies = ("DT5730_DPP_PSD/raw2root/main.cpp", "DT5730_DPP_PSD/raw2root/Makefile",
+                        "common/CommandLine.h", "common/StageReport.h")
+        for step, relative in enumerate(dependencies, 1):
+            binary_time = baseline + step * 2 * 10**9
+            for name in PROGRAMS:
+                os.utime(self.repo / ".build" / name, ns=(binary_time, binary_time))
             path = self.repo / relative
             path.write_text(path.read_text() + "\n")
+            source_time = binary_time + 10**9
+            os.utime(path, ns=(source_time, source_time))
             before = len(self.compiled())
             self.assert_success(self.make("-j4"))
-            self.assertEqual(self.compiled()[before:], ["DT5730_DPP_PSD/raw2root"])
-        common = self.repo / "common/CommandLine.h"
-        common.write_text(common.read_text() + "\n")
-        before = len(self.compiled())
-        self.assert_success(self.make("-j4"))
-        self.assertCountEqual(self.compiled()[before:], PROGRAMS)
+            expected = PROGRAMS if relative.startswith("common/") else ["DT5730_DPP_PSD/raw2root"]
+            self.assertCountEqual(self.compiled()[before:], expected)
 
     def test_compile_failure_propagates(self):
         result = self.make("DT5730_DPP_PSD/sort", env={**self.env, "LABR3_TEST_FAIL_STAGE": "sort"})

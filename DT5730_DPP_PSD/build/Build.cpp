@@ -1,4 +1,5 @@
 #include "Build.h"
+#include "../../common/StageReport.h"
 
 #include "TLeaf.h"
 
@@ -86,10 +87,15 @@ void Build::Process()
   tr_out->Branch("energy", ev.energy, "energy[m]/D");
   tr_out->Branch("timestamp", ev.timestamp, "timestamp[m]/L");
 
-  const auto flush_event = [this]() {
+  labr3::StageCounts counts{{"output_hits", 0}, {"output_events", 0}};
+  for(int m = 1; m <= MAX_MULTI; ++m) counts["events_m" + std::to_string(m)] = 0;
+  const auto flush_event = [this, &counts]() {
     if(tr_out->Fill() < 0){
       throw std::runtime_error("cannot write event to " + temporary_name);
     }
+    counts["output_hits"] += ev.m;
+    ++counts["output_events"];
+    ++counts["events_m" + std::to_string(ev.m)];
     ev = Event{};
   };
 
@@ -97,6 +103,7 @@ void Build::Process()
   Long64_t first_timestamp = 0;
   Long64_t previous_timestamp = 0;
   const Long64_t entries = tr_in->GetEntries();
+  counts["input_hits"] = entries;
   for(Long64_t i = 0; i < entries; ++i){
     if(tr_in->GetEntry(i) <= 0){
       throw std::runtime_error("cannot read input entry " + std::to_string(i));
@@ -157,6 +164,7 @@ void Build::Process()
                              std::strerror(errno));
   }
   temporary_name.clear();
+  labr3::ReportStageCounts("build", counts);
   benchmark.Stop("build");
   benchmark.Show("build");
 }

@@ -95,6 +95,21 @@ run_5 的三个导出目录各有一个文件；run_4 的三个导出目录各�
 `decoder-check.log`、`decoder-verification.json` 记录解码核验。该脚本是本样本的只读审阅工具，
 不是已交付的通用分卷解码入口。原始 BIN、XML 与已有实验 ROOT 保留原样；首卷输入哈希复查一致。
 
+同日完成 P1-07 后，用正式 `scripts/run_pipeline.py --input-manifest` 入口处理 UNFILTERED
+目录的全部 32 卷。可复用清单为 [examples/run4-unfiltered.inputs.json](examples/run4-unfiltered.inputs.json)，
+含相对路径、数字卷号、仅首卷带头声明和每卷 SHA-256；另外两类导出没有加入输入。
+本次从归档源码编译 DT5720 `raw2root`，输入准备与转换均报告 **118,048 条**记录。
+规范 BIN 为 33,171,490 字节，哈希与上面的整组字节流一致；逐卷计数为前 31 卷各 3,731 条、
+末卷 2,387 条。`tr_ch01` 的全部板号、通道、时间戳、道址、短积分、长度、全局 `n`、
+波形和 `dt` 样本序号均逐项匹配原文件，包括 15,110,144 个波形采样值。
+原始 32 卷与 XML 校验值不变。
+
+这次结果保存在 `/tmp/labr3-validation-20261102/run4-unfiltered-manifest/`，包括源码、
+编译与输入准备日志、运行清单及 `raw.root`。同级的 `verify_run4_multifile.py`、
+`run4-multifile-verification.json` 和日志保存独立逐字段比对过程；项目测试说明记录复查命令。
+`scope.declared_parts_complete` 为 `true`，`scope.acquisition_complete` 仍为 `null`。
+未对该单通道样本施加未知来源的刻度或偏移，也未更新历史 ROOT。
+
 这些检查确认了本地字节布局和文件间关系，尚未确认采集是否完整、各通道对应的探测器、
 测量目的、刻度来源及全部实验条件，也未重跑完整实验处理链。B-02 仍为部分完成。
 

@@ -10,7 +10,7 @@ import sys
 import tempfile
 import unittest
 
-from fixtures import (ROOT, Hit, REPO, VARIANTS, checked_run, copy_program,
+from fixtures import (ROOT, Hit, RawRecord, REPO, VARIANTS, checked_run, copy_program, encode_bin_record,
                       read_events, read_raw_hits, read_sorted_hits, write_bin,
                       write_built, write_channel_hits, write_sorted)
 from test_sort import calibration_text, offsets_text
@@ -53,12 +53,14 @@ class PipelineIntegrationTests(unittest.TestCase):
                          "gates_b": [[500, 700]], "time_bins": 20, "time_low": -1, "time_high": 1}
         self.config.write_text(json.dumps(self.settings))
 
-    def execute(self, variant, source, output, *options, cwd=None):
+    def execute(self, variant, source, output, *options, cwd=None, snapshot=False, input_manifest=False):
         cwd = cwd or self.case
         # Relative paths exercise resolution before the driver changes the child cwd.
         command = [sys.executable, "-B", str(REPO / "scripts/run_pipeline.py"),
-                   "--variant", variant, "--run", "9", "--input", os.path.relpath(source, cwd),
-                   "--output-dir", os.path.relpath(output, cwd), "--bin-dir", str(self.bin_dir)]
+                   "--variant", variant, "--run", "9", "--input-manifest" if input_manifest else "--input", os.path.relpath(source, cwd),
+                   "--output-dir", os.path.relpath(output, cwd)]
+        if not snapshot:
+            command += ["--bin-dir", str(self.bin_dir)]
         command += [os.path.relpath(item, cwd) if isinstance(item, Path) else str(item) for item in options]
         return subprocess.run(command, cwd=cwd, text=True, capture_output=True, timeout=120,
                               env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"})
@@ -95,7 +97,7 @@ class PipelineIntegrationTests(unittest.TestCase):
                 result = self.execute(variant, self.source, output,
                                       "--stages", "raw2root,alignment,sort,build,analysis",
                                       "--reference", "3", "--analysis-config", self.config,
-                                      *self.sorting(), cwd=cwd)
+                                      *self.sorting(), cwd=cwd, snapshot=True)
                 self.assert_success(result)
                 self.assertEqual(read_raw_hits(output / "raw.root"), sorted(HITS, key=lambda hit: hit.channel))
                 self.assertEqual(read_sorted_hits(output / "sorted.root")[2], EVENTS[0] + EVENTS[1])
@@ -111,7 +113,21 @@ class PipelineIntegrationTests(unittest.TestCase):
                 manifest = json.loads((output / "manifest.json").read_text())
                 self.assertEqual(manifest["status"], "succeeded")
                 self.assertTrue(manifest["input_unchanged"])
+                self.assertTrue(manifest["counts_complete"])
+                self.assertEqual(manifest["software"]["build_origin"], "snapshot")
+                self.assertEqual(manifest["software"]["build"]["status"], "succeeded")
                 self.assertEqual([stage["status"] for stage in manifest["stages"]], ["succeeded"] * 5)
+                counters = {stage["name"]: stage["counts"] for stage in manifest["stages"]}
+                self.assertEqual(counters["raw2root"], {"input_records": 4, "output_hits": 4})
+                self.assertEqual(counters["alignment"], {"input_hits": 4, "matched_pairs": 2})
+                self.assertEqual(counters["sort"], {"input_hits": 4, "output_hits": 4})
+                self.assertEqual(counters["build"]["output_events"], 2)
+                self.assertEqual(counters["build"]["events_m2"], 2)
+                self.assertEqual(counters["analysis"]["selected_pairs"], 1)
+                for stage in manifest["stages"]:
+                    self.assertTrue(stage["command"][0].startswith(str(output / "source_snapshot"))
+                                    if stage["name"] != "analysis" else
+                                    stage["command"][2].startswith(str(output / "source_snapshot")))
                 self.assertEqual(list(output.rglob("*.partial.*")), [])
         self.assertEqual(originals, {path: hashlib.sha256(path.read_bytes()).hexdigest() for path in originals})
 
@@ -162,6 +178,189 @@ class PipelineIntegrationTests(unittest.TestCase):
         self.assertEqual(manifest["status"], "failed")
         self.assertEqual(manifest["stages"][0]["status"], "failed")
         self.assertFalse((output / "analysis/results.json").exists())
+
+    def test_snapshot_replay_rebuilds_events_and_reproduces_analysis(self):
+        source = self.case / "sorted.root"
+        write_sorted(source, EVENTS[0] + EVENTS[1])
+        output = self.case / "original run"
+        self.assert_success(self.execute(VARIANTS[0], source, output, "--input-kind", "sorted",
+                                         "--stages", "build,analysis", "--analysis-config", self.config,
+                                         snapshot=True))
+        self.config.write_text('{"channel_a": 0, "channel_b": 1}')
+        replayed = self.case / "replayed run"
+        command = [sys.executable, "-B", str(REPO / "scripts/replay_pipeline.py"),
+                   str(output / "manifest.json"), "--output-dir", str(replayed)]
+        result = subprocess.run(command, cwd=self.case, text=True, capture_output=True, timeout=120,
+                                env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"})
+        self.assert_success(result)
+        self.assertEqual(read_events(replayed / "events.root")[2], EVENTS)
+        self.assert_analysis(replayed)
+        before = json.loads((output / "manifest.json").read_text())
+        after = json.loads((replayed / "manifest.json").read_text())
+        self.assertEqual([stage["counts"] for stage in before["stages"]],
+                         [stage["counts"] for stage in after["stages"]])
+        self.assertEqual(after["replayed_from"]["sha256"], hashlib.sha256((output / "manifest.json").read_bytes()).hexdigest())
+        for name, identity in before["source_snapshot"].items():
+            self.assertEqual(identity["sha256"], after["source_snapshot"][name]["sha256"])
+
+    def test_empty_pipeline_records_zero_counts(self):
+        write_bin(self.source, [])
+        output = self.case / "empty"
+        self.assert_success(self.execute(VARIANTS[0], self.source, output, *self.sorting()))
+        manifest = json.loads((output / "manifest.json").read_text())
+        self.assertTrue(manifest["counts_complete"])
+        for stage in manifest["stages"]:
+            self.assertTrue(all(value == 0 for value in stage["counts"].values()))
+        self.assertEqual(read_events(output / "events.root")[2], [])
+
+    def split_manifest(self, variant, truncated=False):
+        folder = self.case / "UNFILTERED"
+        folder.mkdir(exist_ok=True)
+        first, second = folder / "Data_run_9.BIN", folder / "Data_run_9_1.BIN"
+        write_bin(first, HITS[:2])
+        temporary = self.case / "last.BIN"
+        write_bin(temporary, HITS[2:])
+        payload = temporary.read_bytes()[2:]
+        second.write_bytes(payload[:-1] if truncated else payload)
+        document = {"schema_version": 1, "variant": variant, "run": 9, "export": "UNFILTERED",
+                    "streams": [{"id": "hits", "channels": [2, 3], "header_mode": "first", "part_count": 2,
+                                 "files": [{"part": 1, "path": str(second.relative_to(self.case))},
+                                           {"part": 0, "path": str(first.relative_to(self.case))}]}]}
+        manifest = self.case / "split inputs.json"
+        manifest.write_text(json.dumps(document))
+        return manifest
+
+    def test_split_manifest_all_variants_conserve_records_through_analysis(self):
+        for variant in VARIANTS:
+            with self.subTest(variant=variant):
+                manifest = self.split_manifest(variant)
+                output = self.case / f"split-{variant}"
+                result = self.execute(variant, manifest, output, "--stages", "raw2root,alignment,sort,build,analysis",
+                                      "--reference", "3", "--analysis-config", self.config,
+                                      *self.sorting(), cwd=REPO, input_manifest=True)
+                self.assert_success(result)
+                self.assertEqual(read_events(output / "events.root")[2], EVENTS)
+                self.assert_analysis(output)
+                saved = json.loads((output / "manifest.json").read_text())
+                self.assertEqual(saved["schema_version"], 3)
+                self.assertEqual(saved["input_preparation"]["status"], "succeeded")
+                self.assertEqual(saved["scope"]["input_files"], 2)
+                self.assertIsNone(saved["scope"]["acquisition_complete"])
+                self.assertTrue(saved["scope"]["declared_parts_complete"])
+                self.assertEqual(saved["input_set"]["total_records"], 4)
+                self.assertEqual([entry["records"] for entry in saved["input_set"]["files"]], [2, 2])
+                self.assertEqual([entry["record_start"] for entry in saved["input_set"]["files"]], [0, 2])
+                self.assertEqual(saved["stages"][0]["counts"]["output_hits"], 4)
+                self.assertEqual((output / "inputs/assembled.BIN").read_bytes(), self.source.read_bytes())
+
+    def test_independent_headed_channel_files_replay_after_input_relocation(self):
+        streams = []
+        for channel in (2, 3):
+            path = self.case / f"channel-{channel}.BIN"
+            write_bin(path, [hit for hit in HITS if hit.channel == channel])
+            streams.append({"id": f"ch{channel}", "channels": [channel], "header_mode": "each", "part_count": 1,
+                            "files": [{"part": 0, "path": path.name}]})
+        manifest = self.case / "channels.json"
+        manifest.write_text(json.dumps({"schema_version": 1, "variant": VARIANTS[0], "run": 9,
+                                        "export": "CUSTOM", "streams": streams}))
+        output = self.case / "channel run"
+        self.assert_success(self.execute(VARIANTS[0], manifest, output, "--stages", "raw2root,sort,build,analysis",
+                                         "--analysis-config", self.config, *self.sorting(), input_manifest=True, snapshot=True))
+        self.assertEqual(read_events(output / "events.root")[2], EVENTS)
+        self.assert_analysis(output)
+        original = json.loads((output / "manifest.json").read_text())
+        replacement = json.loads((output / "inputs/resolved_manifest.json").read_text())
+        moved = self.case / "moved inputs"
+        moved.mkdir()
+        for stream in replacement["streams"]:
+            source = Path(stream["files"][0]["path"])
+            destination = moved / source.name
+            source.rename(destination)
+            stream["files"][0]["path"] = str(destination)
+        manifest.unlink()
+        relocated = self.case / "relocated.json"
+        relocated.write_text(json.dumps(replacement))
+        replayed = self.case / "channel replay"
+        command = [sys.executable, "-B", str(REPO / "scripts/replay_pipeline.py"), str(output / "manifest.json"),
+                   "--input-manifest", str(relocated), "--output-dir", str(replayed)]
+        result = subprocess.run(command, cwd=self.case, text=True, capture_output=True, timeout=120,
+                                env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"})
+        self.assert_success(result)
+        self.assertEqual(read_events(replayed / "events.root")[2], EVENTS)
+        self.assert_analysis(replayed)
+        saved = json.loads((replayed / "manifest.json").read_text())
+        self.assertEqual(saved["input_set"]["normalized"]["sha256"], original["input_set"]["normalized"]["sha256"])
+        self.assertEqual([entry["sha256"] for entry in saved["input_set"]["files"]],
+                         [entry["sha256"] for entry in original["input_set"]["files"]])
+
+    def test_invalid_split_record_stops_before_compilation(self):
+        manifest = self.split_manifest(VARIANTS[0], truncated=True)
+        output = self.case / "invalid split"
+        result = self.execute(VARIANTS[0], manifest, output, "--stages", "raw2root", input_manifest=True, snapshot=True)
+        self.assertNotEqual(result.returncode, 0)
+        saved = json.loads((output / "manifest.json").read_text())
+        self.assertEqual(saved["input_preparation"]["status"], "failed")
+        self.assertNotIn("build", saved["software"])
+        self.assertEqual(saved["stages"][0]["status"], "not_run")
+        self.assertFalse((output / "raw.root").exists())
+        self.assertFalse((output / "inputs/assembled.BIN").exists())
+        self.assertEqual(list(output.rglob(".assembled.partial.*")), [])
+
+    def test_manifest_label_and_stage_constraints_fail_without_results(self):
+        manifest = self.split_manifest(VARIANTS[0])
+        for index, (variant, options) in enumerate(((VARIANTS[1], ["--stages", "raw2root"]),
+                                                   (VARIANTS[0], ["--input-kind", "sorted", "--stages", "build"]))):
+            with self.subTest(index=index):
+                output = self.case / f"invalid-manifest-{index}"
+                result = self.execute(variant, manifest, output, *options, input_manifest=True)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertFalse(output.exists())
+
+    def test_decoder_count_must_match_validated_manifest(self):
+        manifest = self.split_manifest(VARIANTS[0])
+        tool = self.case / "fake" / VARIANTS[0] / "raw2root"
+        tool.parent.mkdir(parents=True)
+        tool.write_text(f"#!{sys.executable}\nimport pathlib, sys\n"
+                        "pathlib.Path(sys.argv[sys.argv.index('--output') + 1]).write_bytes(b'wrong output')\n"
+                        "print('LABR3_STATS {\"version\":1,\"stage\":\"raw2root\",\"counts\":{\"input_records\":3,\"output_hits\":3}}')\n")
+        tool.chmod(0o755)
+        output = self.case / "mismatched decoder"
+        result = self.execute(VARIANTS[0], manifest, output, "--stages", "raw2root",
+                              "--bin-dir", self.case / "fake", input_manifest=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Decoder record count differs", result.stderr)
+        saved = json.loads((output / "manifest.json").read_text())
+        self.assertEqual(saved["status"], "failed")
+        self.assertEqual(saved["input_set"]["total_records"], 4)
+
+    def test_multi_file_conversion_preserves_optional_fields_waveforms_and_record_numbers(self):
+        records = [RawRecord(timestamp=100), RawRecord(timestamp=200, energy_keV=123.25, waveform=(10, -20))]
+        files = []
+        for part, record in enumerate(records):
+            path = self.case / f"optional-{part}.BIN"
+            path.write_bytes(b"\x0f\x00" + encode_bin_record(record, 15))
+            files.append({"part": part, "path": path.name})
+        manifest = self.case / "optional.json"
+        manifest.write_text(json.dumps({"schema_version": 1, "variant": VARIANTS[0], "run": 9, "export": "CUSTOM",
+                                        "streams": [{"id": "ch2", "channels": [2], "header_mode": "each",
+                                                     "part_count": 2, "files": files}]}))
+        output = self.case / "optional output"
+        self.assert_success(self.execute(VARIANTS[0], manifest, output, "--stages", "raw2root", input_manifest=True))
+        root_file = ROOT.TFile.Open(str(output / "raw.root"), "READ")
+        try:
+            tree = root_file.Get("tr_ch02")
+            self.assertEqual(tree.GetLeaf("energy_keV").GetTypeName(), "Double_t")
+            self.assertEqual(tree.GetEntries(), 2)
+            for index, row in enumerate(tree):
+                expected = records[index]
+                self.assertEqual((int(row.n), int(row.board), int(row.channel), int(row.timestamp)),
+                                 (index, expected.board, expected.channel, expected.timestamp))
+                self.assertEqual((int(row.energy_ch), int(row.energy_short)), (expected.energy_ch, expected.energy_short))
+                self.assertEqual(float(row.energy_keV), expected.energy_keV)
+                self.assertEqual(list(row.data), list(expected.waveform))
+                self.assertEqual(list(row.dt), list(range(len(expected.waveform))))
+        finally:
+            root_file.Close()
 
 
 if __name__ == "__main__":

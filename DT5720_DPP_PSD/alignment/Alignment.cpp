@@ -1,4 +1,5 @@
 #include "Alignment.h"
+#include "../../common/StageReport.h"
 
 #include "TClass.h"
 #include "TH1D.h"
@@ -107,10 +108,11 @@ std::vector<Long64_t> ReadTimestamps(TTree *tree, int expected_channel)
   return values;
 }
 
-void Match(const std::vector<Long64_t> &reference, const std::vector<Long64_t> &target,
+std::uint64_t Match(const std::vector<Long64_t> &reference, const std::vector<Long64_t> &target,
            TH1D &histogram)
 {
   std::size_t j = 0, k = 0;
+  std::uint64_t matched = 0;
   while(j < reference.size() && k < target.size()){
     const bool reference_after = reference[j] >= target[k];
     const ULong64_t gap = reference_after ?
@@ -118,6 +120,7 @@ void Match(const std::vector<Long64_t> &reference, const std::vector<Long64_t> &
       ULong64_t(target[k]) - ULong64_t(reference[j]);
     if(gap < WindowPs){
       histogram.Fill((reference_after ? double(gap) : -double(gap)) / 1000.);
+      ++matched;
       ++k;  // Each target is used once; the earliest eligible reference is reused.
     } else if(reference_after){
       ++k;  // Includes +window: discard the early target, not the reference.
@@ -125,6 +128,7 @@ void Match(const std::vector<Long64_t> &reference, const std::vector<Long64_t> &
       ++j;
     }
   }
+  return matched;
 }
 
 class PendingOutput {
@@ -178,6 +182,7 @@ void Alignment::Process()
   std::array<Long64_t, MAX_CHANNELS> entries{};
   int reference = requested_reference;
   int present_mask = 0;
+  labr3::StageCounts report{{"input_hits", 0}, {"matched_pairs", 0}};
   for(int channel = 0; channel < MAX_CHANNELS; ++channel){
     const std::string name = TString::Format("tr_ch%02d", channel).Data();
     auto *object = file_in->Get(name.c_str());
@@ -186,6 +191,7 @@ void Alignment::Process()
     if(!trees[channel]) throw std::runtime_error("invalid input tree " + name);
     ValidateTree(trees[channel]);
     entries[channel] = trees[channel]->GetEntries();
+    report["input_hits"] += entries[channel];
     present_mask |= 1 << channel;
     if(reference == -1 && entries[channel] > 0) reference = channel;
   }
@@ -209,7 +215,7 @@ void Alignment::Process()
                    static_cast<int>(2 * WindowPs / 100), -double(WindowPs) / 1000.,
                    double(WindowPs) / 1000.);
     histogram.SetDirectory(nullptr);
-    Match(reference_times, target_times, histogram);
+    report["matched_pairs"] += Match(reference_times, target_times, histogram);
     output->cd();
     if(histogram.Write() <= 0) throw std::runtime_error("cannot write " + name);
   }
@@ -240,6 +246,7 @@ void Alignment::Process()
   }
   output.reset();
   pending.Publish(output_name);
+  labr3::ReportStageCounts("alignment", report);
   std::cout << "reference channel " << reference << ", window " << WindowPs
             << " ps; time difference = t_reference - t_channel (ns)" << std::endl;
 }

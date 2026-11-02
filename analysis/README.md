@@ -24,6 +24,9 @@ python3 -B analysis/run_analysis.py --input /path/to/events.root \
 输出包括 `results.json`、`histograms.root` 和只含表头的 `fits.csv`，其中 `fits` 为空。
 这项任务不执行局部峰拟合、绘图或推断探测器分辨率；这些功能继续由 Notebook 提供。
 在全链中，`scripts/run_pipeline.py` 负责隔离运行目录、保存参数副本、记录退出状态并在失败时停止。
+分析入口、`notebook_analysis.py` 和 `EventAnalysis.h` 一并保存到源码快照，分析子进程直接加载
+这些副本；事件/命中数与上游构建阶段交叉核对。可用 `scripts/replay_pipeline.py` 从成功运行
+的归档重跑，并保留原输入和参数校验值。
 批处理完整用法见 [项目说明](../README.md#批处理入口)。
 
 ## 数据与筛选约定
@@ -67,7 +70,7 @@ Notebook 会对几个时间拟合区间重复拟合，但不把其跨度当作�
 ## 输出与重跑
 
 Notebook 从已有的排序 ROOT 文件重建事件，重建程序由本次保存的源码快照编译。
-快照包括共享命令行头文件 `common/CommandLine.h`；重建使用显式 `--input`、`--output`
+快照包括共享命令行头文件 `common/CommandLine.h` 和计数报告头 `common/StageReport.h`；重建使用显式 `--input`、`--output`
 路径，不要求在临时目录中复刻原有运行编号目录布局。
 每次从头执行创建一个独立的结果目录；参数文件快照不证明它们曾用于历史排序。
 导出 `results.json`、`fits.csv`、`histograms.root`、PNG/PDF 图像、源码快照和构建日志。

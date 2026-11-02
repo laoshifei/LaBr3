@@ -45,7 +45,8 @@ def copy_program(root, variant, stage):
             shutil.copyfile(path, source / path.name)
     common = root / "common"
     common.mkdir(exist_ok=True)
-    shutil.copyfile(REPO / "common/CommandLine.h", common / "CommandLine.h")
+    for name in ("CommandLine.h", "StageReport.h"):
+        shutil.copyfile(REPO / "common" / name, common / name)
     return source
 
 

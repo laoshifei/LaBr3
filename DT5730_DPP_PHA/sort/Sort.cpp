@@ -1,4 +1,5 @@
 #include "Sort.h"
+#include "../../common/StageReport.h"
 
 #include "TBenchmark.h"
 #include "TClass.h"
@@ -281,6 +282,7 @@ void Sort::Process()
   output.reset();
   pending.Publish(output_name);
   std::cout << "sorted " << hits.size() << " records" << std::endl;
+  labr3::ReportStageCounts("sort", {{"input_hits", hits.size()}, {"output_hits", hits.size()}});
   benchmark.Stop("sort");
   benchmark.Show("sort");
 }

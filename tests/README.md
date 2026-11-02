@@ -18,6 +18,7 @@ python3 tests/test_paths.py
 python3 tests/test_analysis.py
 python3 tests/test_peak_fit.py
 python3 tests/test_make.py
+python3 tests/test_bin_inputs.py
 python3 tests/test_pipeline.py
 python3 tests/test_pipeline_integration.py
 ```
@@ -32,12 +33,23 @@ python3 tests/test_pipeline_integration.py
 同时覆盖带空格的仓库和工具路径、从其他工作目录执行 `make -C`，以及 12 个阶段原有的
 独立编译和 `OBJ`/`out` 输出覆盖。模拟工具检查用于验证编译调度，不能代替真实 C++ 编译和运行。
 
-`test_pipeline.py` 的 16 项检查使用临时可执行脚本，不依赖 ROOT，覆盖批处理阶段顺序、
+`test_bin_inputs.py` 的 19 项检查仅使用标准库，覆盖全部 16 种字段组合和两种头部策略，
+逐字节核对规范 BIN；覆盖数字卷号（含第 10 卷）、独立通道顺序、重复路径/硬链接/非空载荷、
+缺卷、导出类别、头部不一致、截断及跨卷记录、非法数值/波形、通道/板号和时间倒退。
+另验证相同时间戳及边界记录保留、空载荷、固定哈希和只改变路径的搬迁清单。
+
+`test_pipeline.py` 的 26 项检查使用临时可执行脚本，不依赖 ROOT，覆盖批处理阶段顺序、
 显式参数及副本、输出目录保护、输入/产物哈希、已知分卷拒绝、失败停止、缺失产物、
 输入变化、超时及 SIGTERM 中断，以及分析 JSON 的类型与范围检查。
-`test_pipeline_integration.py` 的 5 项检查通过根目录入口在临时源码副本中编译全部 12 个程序，
-运行三种配置的 BIN → 对齐/排序 → 构建 → 分析，逐字段核对结果、筛选计数和时间谱。
+另检查源码/参数/二进制归档的哈希验证、重跑输入迁移、归档路径约束、编译失败与
+计数报告/多重数/阶段间守恒，旧程序未报告计数时单文件运行明确保留未知状态，多文件运行失败；
+原始分卷在准备完成后发生变化也会令整次运行失败，并将输入未变标志置为假。
+`test_pipeline_integration.py` 的 13 项检查通过根目录入口在临时源码副本中编译全部 12 个程序，
+并实际验证三种配置的默认源码快照编译及 BIN → 对齐/排序 → 构建 → 分析，
+逐字段核对结果、筛选计数、阶段报告和时间谱；另从归档重编并比较重跑计数，验证空输入零计数。
 还覆盖从三个 ROOT 阶段起跑、截断 BIN、无效偏移文件和错误阶段的分析输入。
+新增的分卷检查覆盖三种配置的完整链、独立通道合并、数据搬迁后的归档重编与分析，
+以及准备失败时不启动编译、清单标签/阶段约束、解码计数不符和可选字段/波形/记录序号。
 相对路径从项目根目录和外部目录调用，目录及文件名包含空格和中文；原输入和参数哈希不变。
 
 `test_build.py` 的 29 项检查使用显式列出的预期事件分组，逐项比较板号、通道、能量和时间戳，
@@ -211,6 +223,61 @@ env PATH="/opt/root/6.34.10/bin:$PATH" PYTHONDONTWRITEBYTECODE=1 \
 其他用例验证从原始通道树、排序树、事件树开始，以及截断输入、坏参数和错误分析输入的停止行为。
 集成日志为 `/tmp/labr3-validation-20261102/pipeline-integration.log`。
 本轮未重跑其余既有检查，没有重新处理实验 BIN、修改历史 ROOT 或更新旧 Notebook 输出。
+
+继续完成 P1-05 后，在同一 Python 3.13.5 / ROOT 6.34.10 环境分组验证，
+**去重覆盖全部 193 个检查方法，无跳过项**：139 项原有功能回归、15 项运行路径、
+8 项编译入口、24 项批处理/归档检查和 7 项实际程序集成。
+三种配置均验证默认源码快照编译、实际执行文件来自快照、完整阶段计数和零记录输入。
+归档重跑重新编译后得到相同的字段、事件分组和分析计数；改变原参数或原二进制不影响已保存副本，
+修改归档内容或提供不同输入哈希会被拒绝。Notebook 快照补齐新共享头后也编译运行通过。
+增量依赖检查对源码和产物显式设置临时时间戳，覆盖两个共享头，避免依赖真实时钟精度。
+
+本次日志均在 `/tmp/labr3-validation-20261102/`：
+
+- `records-regression.log`：139 项（对齐 31、排序 37、构建 29、解码 19、分析 17、拟合 6）。
+- `records-paths-make.log`：运行路径 15 项及编译入口 8 项。
+- `records-pipeline-tests.log`：调度、归档、重跑及计数契约 24 项。
+- `records-integration.log`：实际程序及归档重编的 7 项集成检查。
+- `records-replay-check.log`：加强重跑清单布局校验后，补查其中 1 项重编/分析检查，不重复计入总数。
+
+可使用文首的完整 discovery 命令复查；分组加载时应保留 ROOT 原有的 Python 搜索路径，
+在 Python 中用 `sys.path.insert(0, 'tests')` 加入测试目录，不覆盖已有 `PYTHONPATH`。
+本轮仅处理合成样本，没有重新处理实验 BIN、历史 ROOT 或旧 Notebook 输出。
+
+P1-07 在同一环境新增并复查 **58 项**：清单字节校验 19 项、批处理 26 项、实际程序集成
+13 项，均通过，无跳过项。未重复运行未改动的 C++ 算法及其余分析回归；结合上轮基线，
+当前共有 220 个已覆盖检查方法。复查命令：
+
+```bash
+python3 -B tests/test_bin_inputs.py -v
+python3 -B tests/test_pipeline.py -v
+env PATH=/opt/root/6.34.10/bin:/usr/local/bin:/usr/bin:/bin \
+    PYTHONDONTWRITEBYTECODE=1 MPLCONFIGDIR=/tmp/labr3-validation-20261030/matplotlib \
+    /tmp/labr3-validation-20261030/bin/python -B tests/test_pipeline_integration.py -v
+```
+
+日志在 `/tmp/labr3-validation-20261102/`：`bin-input-tests.log`、`multifile-pipeline-tests.log`、
+`multifile-integration.log`。集成组实际编译全部 12 个程序，另有归档源码构建和搬迁后重跑。
+最后对输入变更标志的修正由批处理组复查，未重复整组编译。
+
+本轮也通过正式入口转换真实 run_4 的 UNFILTERED 32 卷，所有产物写入临时新目录：
+
+```bash
+env PATH=/opt/root/6.34.10/bin:/usr/local/bin:/usr/bin:/bin PYTHONDONTWRITEBYTECODE=1 \
+    /tmp/labr3-validation-20261030/bin/python -B scripts/run_pipeline.py \
+    --variant DT5720_DPP_PSD --run 4 \
+    --input-manifest docs/examples/run4-unfiltered.inputs.json --stages raw2root \
+    --output-dir /tmp/labr3-validation-20261102/run4-unfiltered-manifest \
+    --root-config /opt/root/6.34.10/bin/root-config
+env PYTHONDONTWRITEBYTECODE=1 /tmp/labr3-validation-20261030/bin/python -B \
+    /tmp/labr3-validation-20261102/verify_run4_multifile.py
+```
+
+已有结果目录会被拒绝；重新转换须更换目录，并相应调整临时核验脚本的目录。
+`run4-multifile-pipeline.log`、`run4-multifile-verification.log/json` 保存结果。
+逐条核对 118,048 条保存字段与 15,110,144 个波形采样值，`n`、`dt` 和分支类型均匹配；
+规范 BIN 哈希与先前只读分卷审阅一致。核验脚本允许无记录通道不保存树，与解码器既有行为一致。
+原始分卷与 XML 哈希未变；本次只做转换，没有施加刻度/偏移或覆盖历史 ROOT。
 
 事件构建必须遵循以下规则：时间戳按 ps 存储；以事件首条记录起算，严格小于
 50 ns 的记录进入同一事件；恰好 50 ns 的记录开启下一事件。容量为 8；同窗第 9 条

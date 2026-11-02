@@ -39,7 +39,7 @@ keV 能量均报错并返回非零状态。通道范围为 0–7；`energy_keV` 
 ## 编译
 
 需要安装提供 `root-config` 的 ROOT、C++ 编译器和 GNU Make。
-保留完整源码目录结构，各阶段会引用 `common/CommandLine.h`。
+保留完整源码目录结构，各阶段会引用 `common/CommandLine.h` 和 `common/StageReport.h`。
 在项目根目录执行：
 
 ```bash
@@ -121,15 +121,17 @@ mkdir -p results/run0014
 ## 批处理入口
 
 `scripts/run_pipeline.py` 将选定阶段按顺序运行，使用 Python 3.8+ 标准库调度现有程序。
-先用根目录 Makefile 编译；默认从项目的 `.build/<配置>/<阶段>` 读取可执行文件，
-也可用 `--bin-dir` 指向包含相同目录结构的其他编译产物。
+默认先保存本次使用的源码，再从结果目录中的 `source_snapshot/` 编译所选程序，
+实际执行的二进制也保存在该快照的 `.build/` 中；分析脚本及共享分析头同样从快照加载。
+包含 C++ 阶段时需要 GNU Make、C++ 编译器和 `root-config`；可通过 `--root-config`、
+`--cxx` 指定工具，`--jobs` 指定编译并行数（默认 2）。构建工具的版本、哈希、ROOT 编译/链接选项、
+相关环境变量与实际构建命令均写入运行记录，完整编译输出在 `logs/00-compile.log`。
 只有选择 `analysis` 时，运行脚本的 Python 才需要可导入的 PyROOT 和 NumPy。
 
 以下命令处理一个 BIN，显式使用本次测量适用的刻度及偏移文件。
 输出目录必须尚不存在；脚本会创建目录及其父目录，重复执行需换一个结果目录名：
 
 ```bash
-make DT5730_DPP_PSD
 python3 -B scripts/run_pipeline.py \
   --variant DT5730_DPP_PSD --run 14 --input "/path/to/Data_run_14.BIN" \
   --calibration "/path/to/calibration.dat" --offsets "/path/to/offsets.dat" \
@@ -137,14 +139,15 @@ python3 -B scripts/run_pipeline.py \
 ```
 
 `--run` 是 0–2147483647 的记录标签，不用于猜测输入路径、判断设备或确认采集完整性。
-设备必须为三种配置之一。所有用户提供的相对路径按调用时的工作目录解析；
+设备必须为三种配置之一。命令行中的相对路径按调用时的工作目录解析；输入清单内部的
+文件路径按清单所在目录解析。
 从其他目录执行时使用脚本的绝对路径即可。`--help` 不要求 ROOT 或数据文件。
 
 `--input-kind` 声明输入所处阶段，缺省为 `bin`。未给 `--stages` 时按下表选择：
 
 | 输入种类 | 输入内容 | 默认阶段 |
 | --- | --- | --- |
-| `bin` | 一个完整 BIN 文件 | `raw2root,sort,build` |
+| `bin` | 一个完整 BIN 文件或显式 BIN 清单 | `raw2root,sort,build` |
 | `raw` | 按通道保存的原始 ROOT 树 | `sort,build` |
 | `sorted` | 已排序、已修正的标量命中树 | `build` |
 | `events` | 已构建的事件数组树 | `analysis` |
@@ -179,19 +182,74 @@ python3 -B scripts/run_pipeline.py \
 以及可选的 `analysis/results.json`、`histograms.root` 和只含表头的 `fits.csv`。
 `logs/` 保存各子进程的标准输出与错误；`parameters/` 保存实际读取的参数副本；
 `manifest.json` 保存输入/输出/二进制 SHA-256、命令参数、耗时、退出码、Git 工作区状态和阶段状态。
-只有全部所选阶段成功且输入及可执行文件哈希未变，整体状态才为 `succeeded`。
+其中 `source_snapshot` 列出保存的源码文件及各自哈希，`software.build` 记录从它们编译的过程。
+只有全部所选阶段成功、计数校验通过且输入、实际执行文件、源码和参数副本哈希未变，
+整体状态才为 `succeeded`。
+
+各 C++ 程序在成功发布输出后打印一条 `LABR3_STATS` JSON 记录，批处理将其保存到阶段的
+`counts` 字段；分析计数来自 `analysis/results.json`。当前计数字段如下：
+
+| 阶段 | 计数字段 |
+| --- | --- |
+| `raw2root` | `input_records`、`output_hits` |
+| `alignment` | `input_hits`、`matched_pairs` |
+| `sort` | `input_hits`、`output_hits` |
+| `build` | `input_hits`、`output_hits`、`output_events`、`events_m1`–`events_m8` |
+| `analysis` | `input_events`、`input_hits`、`channel_pairs`、`selected_pairs` |
+
+转换和排序应保留命中数；事件构建的各多重数计数之和应等于事件数，按多重数加权后应等于
+输入命中数。相邻阶段的命中/事件计数也需一致，任何不一致都会使运行失败。
+对齐是辅助匹配，不要求匹配数等于输入命中数；分析能量门允许减少入选对数。
+`counts_complete` 表示全部所选阶段都提供了计数。
 
 任一步失败即停止，后续阶段记为 `not_run`；已完成阶段和失败日志保留供核查，
-整体标为 `failed` 并返回非零退出码。`--timeout SECONDS` 可限定每阶段耗时，默认不限时；
+整体标为 `failed` 并返回非零退出码。`--timeout SECONDS` 可限定输入准备、编译及每阶段耗时，默认不限时；
 超时、Ctrl-C 或 SIGTERM 会停止当前子进程组。强制杀死进程或断电可能留下 `running`，
 应视为未完成，不能按输出文件存在就认定成功。
 
-本入口一次只处理一个输入文件，不自动寻找或合并多个输入。识别到 CAEN 数字续卷或
-同目录同名前缀的数字分卷时拒绝执行，等待 P1-07 的输入清单支持。
-孤立或改名的首卷无法靠文件名证明完整，故所有运行的 `scope.acquisition_complete`
-均为 `null`；`succeeded` 仅表示对指定文件完成所选阶段。
-当前保存的是预编译二进制哈希，Git 信息描述运行时工作区，并不证明二进制的构建来源；
-源码与构建来源绑定、各阶段完整计数留待 P1-05。
+`--input` 保留单文件接口；识别到 CAEN 数字续卷或同目录同名前缀的数字分卷时，
+要求改用 `--input-manifest`。JSON 清单显式声明导出类别、各流的通道、卷号和头部策略，
+支持仅首卷带头的续卷及每文件带头的独立通道输入。按数字卷号检查缺卷、重复文件、
+截断记录及通道内时间倒退，不以相同时间戳去重。格式、限制和重跑方法见
+[BIN 输入清单](docs/input-manifests.md)。本地 32 卷示例可直接只做转换：
+
+```bash
+python3 -B scripts/run_pipeline.py \
+  --variant DT5720_DPP_PSD --run 4 \
+  --input-manifest docs/examples/run4-unfiltered.inputs.json \
+  --stages raw2root --output-dir results/run0004_conversion01
+```
+
+该模式在 `inputs/` 保存原清单、逐文件计数与哈希、供重跑的已解析清单，以及记录字节不变的
+统一 BIN；后者约需原 BIN 总量的额外磁盘空间。原文件保持只读。
+`scope.declared_parts_complete = true` 表示声明的卷均通过校验；孤立或改名文件无法靠
+文件名证明完整，所有运行的 `scope.acquisition_complete` 仍为 `null`。
+`succeeded` 仅表示对指定输入完成所选阶段。
+
+如需复用现有程序，可以先运行根目录 `make`，然后显式加 `--bin-dir .build`。
+脚本会将所选程序复制到结果目录的 `executables/` 再运行，标记 `software.build_origin = prebuilt`。
+此模式中的源码快照仅描述当时的工作区，不能证明它与外部二进制对应；无计数报告的旧程序
+在单文件运行中保留 `counts = null`、`counts_complete = false`。
+默认快照编译和多文件清单模式均要求完整计数报告。
+
+成功的 schema version 2/3 运行可以直接按归档重跑，当前运行保存 version 3；
+必须使用原结果目录之外的新目录：
+
+```bash
+python3 -B scripts/replay_pipeline.py results/run0014_attempt01/manifest.json \
+  --output-dir results/run0014_replay01
+```
+
+重跑先校验保存的源码、参数及原输入哈希，再调用归档中的驱动脚本：默认模式从归档源码重新编译，
+预编译模式使用保存的二进制副本。不会读取后来修改的项目源码、原参数或原二进制。
+原始输入仍须可读。若移动了单文件输入，用 `--input /new/path/input.BIN` 指定，内容哈希仍须相同。
+多文件运行使用归档的已解析清单；搬迁时通过 `--input-manifest` 提供只修改路径的新副本，
+保留全部声明和逐文件校验值。统一 BIN 会重新生成。
+旧格式或未成功完成的运行不能通过此入口重跑。
+源码编译模式可显式覆盖 `--root-config`、`--cxx`、`--jobs`；两种模式均可调整 `--timeout`，
+仍需安装兼容的外部依赖。
+新记录保存实际环境及 `replayed_from` 原清单校验值。比较重跑结果应按字段和统计量，
+不要求 ROOT 文件或重新编译的二进制字节完全相同。
 
 ## BIN 格式、命名与输入范围
 
@@ -252,21 +310,20 @@ python3 -B scripts/run_pipeline.py \
 | 输入组织方式 | 当前支持范围 |
 | --- | --- |
 | 一个带完整文件头的文件，记录可含多个通道 | 支持；一次调用读取这一个文件 |
-| 按通道导出的 `Data_CHx@设备_run_N.BIN` | 满足上述布局时可单独转换；不自动查找其他通道文件 |
+| 按通道导出的 `Data_CHx@设备_run_N.BIN` | 可单独转换，也可用清单的独立通道流统一转换；不自动查找其他通道 |
 | `RAW`、`FILTERED`、`UNFILTERED` 目录或 `DataR_`、`DataF_` 前缀 | 名称不决定解码方式，也不代表可相加的数据集合；需核对字节布局及来源 |
-| 首卷加 `_1`、`_2` 等续卷 | 尚无分卷读取接口；不自动拼接、补文件头或去重 |
-| 多个输入路径、目录或通配符 | 尚无多文件处理接口；重复 `--input` 会报错 |
+| 首卷加 `_1`、`_2` 等续卷 | 使用批处理 `--input-manifest`，显式选择仅首卷带头或每文件带头 |
+| 多个输入路径、目录或通配符 | 多个文件逐项列入 JSON 清单；不将目录或通配符作为输入 |
 
-对不同通道文件分别转换时需使用不同输出名；当前 `sort` 接受一个 ROOT 输入，
-没有提供多通道文件合并流程。程序只检查所选文件是否结束在完整记录边界，
-不会检查它是否为运行的最后一卷；首卷成功转换也可能只覆盖运行的一部分。
+直接调用 C++ `raw2root` 仍只读取一个带头文件；不同通道分别调用时需使用不同输出名。
+批处理清单先校验并生成单一 BIN，再交给原转换器，所得通道树可直接供 `sort` 使用。
+文件结束在完整记录边界不能证明它是运行的最后一卷；首卷成功也可能只覆盖运行的一部分。
 
 本地 DT5720 run_4 的每类导出均有 32 卷，只有首卷含 `0xCAED` 文件头，续卷直接从
 记录开始；其 `RAW`、`FILTERED`、`UNFILTERED` 对应卷的 SHA-256 全部相同。
 详细证据见 [真实样本记录](docs/runs.md#dt5720_dpp_psd--run_4-分卷核对)。
-后续实现多文件读取时，应显式记录输入清单、导出类别、通道及头部策略，按数字卷号排序，
-检查缺卷、重复卷号、重复文件内容、记录边界和时间顺序。序号连续或时间相同本身
-不足以证明采集完整或判断重复事件，不能直接按时间戳去重。
+输入清单会检查缺卷、重复卷号、重复文件内容、记录边界和时间顺序。序号连续或时间相同本身
+不足以证明采集完整或判断重复事件，不能直接按时间戳去重，也不能混加三类导出。
 
 ## ROOT 输入约定
 

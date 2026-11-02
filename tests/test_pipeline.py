@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import signal
+import struct
 import subprocess
 import sys
 import tempfile
@@ -16,6 +17,8 @@ import unittest
 REPO = Path(__file__).resolve().parents[1]
 DRIVER = REPO / "scripts/run_pipeline.py"
 VARIANT = "DT5730_DPP_PSD"
+sys.path.insert(0, str(REPO / "scripts"))
+import pipeline_records as records
 
 
 class PipelineTests(unittest.TestCase):
@@ -59,13 +62,13 @@ class PipelineTests(unittest.TestCase):
             """))
             tool.chmod(0o755)
 
-    def command(self, *options):
+    def command(self, *options, snapshot=False):
         return [sys.executable, "-B", str(DRIVER), "--variant", VARIANT, "--run", "9",
                 "--input", str(self.source), "--output-dir", str(self.output),
-                "--bin-dir", str(self.bin_dir), *map(str, options)]
+                *([] if snapshot else ["--bin-dir", str(self.bin_dir)]), *map(str, options)]
 
-    def invoke(self, *options, env=None):
-        return subprocess.run(self.command(*options), cwd=self.work, env=env or self.env,
+    def invoke(self, *options, env=None, snapshot=False):
+        return subprocess.run(self.command(*options, snapshot=snapshot), cwd=self.work, env=env or self.env,
                               text=True, capture_output=True, timeout=30)
 
     def sorting(self):
@@ -83,11 +86,13 @@ class PipelineTests(unittest.TestCase):
         self.assertIn("--input-kind", result.stdout)
         self.assertFalse(self.output.exists())
 
-    def test_default_pipeline_records_commands_hashes_and_snapshots(self):
+    def test_prebuilt_pipeline_records_commands_hashes_and_snapshots(self):
         self.assert_success(self.invoke(*self.sorting()))
         manifest = self.manifest()
         self.assertEqual(manifest["status"], "succeeded")
         self.assertTrue(manifest["input_unchanged"])
+        self.assertFalse(manifest["counts_complete"])
+        self.assertEqual(manifest["software"]["build_origin"], "prebuilt")
         self.assertIsNone(manifest["scope"]["acquisition_complete"])
         self.assertEqual([item["name"] for item in manifest["stages"]], ["raw2root", "sort", "build"])
         for stage in manifest["stages"]:
@@ -103,6 +108,126 @@ class PipelineTests(unittest.TestCase):
             self.assertEqual(snapshot.read_bytes(), original.read_bytes())
             self.assertIn(str(snapshot), sort_command)
             self.assertNotIn(str(original), sort_command)
+
+    def replay(self, destination, *options):
+        return subprocess.run([sys.executable, "-B", str(REPO / "scripts/replay_pipeline.py"),
+                               str(self.output / "manifest.json"), "--output-dir", str(destination),
+                               *map(str, options)], cwd=self.work, env=self.env, text=True,
+                              capture_output=True, timeout=30)
+
+    def test_replay_uses_archived_parameters_and_binary_copies(self):
+        self.assert_success(self.invoke(*self.sorting()))
+        manifest = self.manifest()
+        records.verify_archive(self.output, manifest["source_snapshot"])
+        records.verify_archive(self.output, manifest["software"]["binaries"])
+        self.calibration.write_text("changed original calibration")
+        self.offsets.write_text("changed original offsets")
+        for stage in ("raw2root", "sort", "build"):
+            (self.bin_dir / VARIANT / stage).write_text("changed original executable")
+        destination = self.work / "replayed"
+        self.assert_success(self.replay(destination))
+        replayed = json.loads((destination / "manifest.json").read_text())
+        self.assertEqual(replayed["status"], "succeeded")
+        self.assertEqual(replayed["replayed_from"]["path"], str(self.output / "manifest.json"))
+        self.assertEqual((destination / "events.root").read_bytes(), (self.output / "events.root").read_bytes())
+        for name in ("calibration", "offsets"):
+            self.assertEqual(replayed["parameters"][name]["sha256"], manifest["parameters"][name]["sha256"])
+
+    def test_replay_refuses_changed_source_parameter_or_binary(self):
+        self.assert_success(self.invoke(*self.sorting()))
+        for relative in ("source_snapshot/scripts/run_pipeline.py", "parameters/calibration.dat",
+                         f"executables/{VARIANT}/build"):
+            with self.subTest(path=relative):
+                path = self.output / relative
+                original = path.read_bytes()
+                path.write_bytes(original + b"changed")
+                try:
+                    destination = self.work / "must-not-exist"
+                    result = self.replay(destination)
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn("File changed", result.stderr)
+                    self.assertFalse(destination.exists())
+                finally:
+                    path.write_bytes(original)
+
+    def test_replay_input_relocation_requires_same_hash(self):
+        self.assert_success(self.invoke(*self.sorting()))
+        relocated = self.work / "relocated.BIN"
+        self.source.rename(relocated)
+        self.assert_success(self.replay(self.work / "relocated-result", "--input", relocated))
+        relocated.write_bytes(b"different input")
+        destination = self.work / "changed-input"
+        self.assertNotEqual(self.replay(destination, "--input", relocated).returncode, 0)
+        self.assertFalse(destination.exists())
+
+    def test_replay_preserves_original_run_and_rejects_incomplete_runs(self):
+        self.assert_success(self.invoke(*self.sorting()))
+        self.assertNotEqual(self.replay(self.output / "nested").returncode, 0)
+        self.assertNotEqual(self.replay(self.work / "zero-jobs", "--jobs", "0").returncode, 0)
+        self.assertFalse((self.work / "zero-jobs").exists())
+        manifest = self.manifest()
+        manifest["status"] = "failed"
+        (self.output / "manifest.json").write_text(json.dumps(manifest))
+        destination = self.work / "incomplete-replay"
+        self.assertNotEqual(self.replay(destination).returncode, 0)
+        self.assertFalse(destination.exists())
+
+    def test_build_tool_failure_retains_source_snapshot_and_stops_stages(self):
+        result = self.invoke(*self.sorting(), "--cxx", "/bin/false", snapshot=True)
+        self.assertNotEqual(result.returncode, 0)
+        manifest = self.manifest()
+        self.assertEqual(manifest["software"]["build_origin"], "snapshot")
+        self.assertEqual(manifest["software"]["build"]["status"], "failed")
+        self.assertEqual([stage["status"] for stage in manifest["stages"]], ["not_run"] * 3)
+        records.verify_archive(self.output, manifest["source_snapshot"])
+        self.assertFalse((self.output / "raw.root").exists())
+
+    def test_stage_report_validation_and_handoff_conservation(self):
+        log = self.work / "counts.log"
+        def read(stage, counts):
+            log.write_text("LABR3_STATS " + json.dumps({"version": 1, "stage": stage, "counts": counts}) + "\n")
+            return records.read_stage_counts(stage, log, self.work, required=True)
+        expected = {"input_hits": 3, "output_hits": 3, "output_events": 2,
+                    **{f"events_m{i}": int(i in (1, 2)) for i in range(1, 9)}}
+        self.assertEqual(read("build", expected), expected)
+        for change in ({"output_hits": 2}, {"output_events": 1}, {"events_m1": 0}, {"input_hits": -1},
+                       {"input_hits": 3.0}, {"events_m1": True}):
+            with self.subTest(change=change), self.assertRaises(ValueError):
+                read("build", {**expected, **change})
+        for stage, counts in (("raw2root", {"input_records": 3, "output_hits": 2}),
+                              ("sort", {"input_hits": 3, "output_hits": 4}),
+                              ("alignment", {"input_hits": 2, "matched_pairs": 3})):
+            with self.subTest(stage=stage), self.assertRaises(ValueError):
+                read(stage, counts)
+        records.check_handoff("build", expected, {"output_hits": 3})
+        with self.assertRaisesRegex(ValueError, "Hit count mismatch"):
+            records.check_handoff("build", expected, {"output_hits": 4})
+        with self.assertRaisesRegex(ValueError, "Event count mismatch"):
+            records.check_handoff("analysis", {"input_hits": 3, "input_events": 3}, expected)
+
+    def test_missing_duplicate_or_wrong_stage_count_reports_are_rejected(self):
+        log = self.work / "counts.log"
+        log.write_text("legacy output\n")
+        self.assertIsNone(records.read_stage_counts("sort", log, self.work, required=False))
+        with self.assertRaises(ValueError):
+            records.read_stage_counts("sort", log, self.work, required=True)
+        report = 'LABR3_STATS {"version":1,"stage":"sort","counts":{"input_hits":0,"output_hits":0}}\n'
+        for text in (report * 2, report.replace('"sort"', '"build"'), report.replace('"version":1', '"version":9')):
+            with self.subTest(text=text), self.assertRaises(ValueError):
+                log.write_text(text)
+                records.read_stage_counts("sort", log, self.work, required=True)
+
+    def test_archive_paths_cannot_escape_the_run_directory(self):
+        self.assert_success(self.invoke(*self.sorting()))
+        for relative in ("../calibration.dat", str(self.calibration)):
+            with self.subTest(path=relative), self.assertRaises(ValueError):
+                records.archived_path(self.output, relative)
+        manifest = self.manifest()
+        del manifest["source_snapshot"]["scripts/run_pipeline.py"]
+        (self.output / "manifest.json").write_text(json.dumps(manifest))
+        destination = self.work / "missing-driver-record"
+        self.assertNotEqual(self.replay(destination).returncode, 0)
+        self.assertFalse(destination.exists())
 
     def test_alignment_is_a_side_stage_and_does_not_feed_sort(self):
         self.assert_success(self.invoke("--stages", "raw2root,alignment,sort,build", "--reference", "3", *self.sorting()))
@@ -168,7 +293,7 @@ class PipelineTests(unittest.TestCase):
         for source in (first, second):
             result = self.invoke(*self.sorting(), "--input", source)
             self.assertNotEqual(result.returncode, 0)
-            self.assertIn("P1-07", result.stderr)
+            self.assertIn("--input-manifest", result.stderr)
         first.unlink()
         result = self.invoke(*self.sorting(), "--input", second)
         self.assertNotEqual(result.returncode, 0)
@@ -206,6 +331,42 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(manifest["status"], "failed")
         self.assertFalse(manifest["input_unchanged"])
         self.assertIn("Input changed", result.stderr)
+
+    def bin_manifest_command(self):
+        self.source.write_bytes(struct.pack("<HhhqHI", 1, 0, 2, 100, 99, 0))
+        source = self.work / "inputs.json"
+        source.write_text(json.dumps({"schema_version": 1, "variant": VARIANT, "run": 9, "export": "CUSTOM",
+                                     "streams": [{"id": "ch2", "channels": [2], "header_mode": "each",
+                                                  "part_count": 1, "files": [{"part": 0, "path": self.source.name}]}]}))
+        command = self.command("--stages", "raw2root")
+        index = command.index("--input")
+        command[index:index + 2] = ["--input-manifest", str(source)]
+        return command
+
+    def test_manifest_requires_decoder_count_report_from_prebuilt_program(self):
+        result = subprocess.run(self.bin_manifest_command(), cwd=self.work, env=self.env,
+                                text=True, capture_output=True, timeout=30)
+        self.assertNotEqual(result.returncode, 0)
+        saved = self.manifest()
+        self.assertEqual(saved["input_preparation"]["status"], "succeeded")
+        self.assertEqual(saved["stages"][0]["status"], "failed")
+        self.assertIn("count report", result.stderr)
+
+    def test_original_manifest_part_change_prevents_unchanged_flag_and_success(self):
+        command = self.bin_manifest_command()
+        tool = self.bin_dir / VARIANT / "raw2root"
+        tool.write_text(f"#!{sys.executable}\nimport pathlib, sys\n"
+                        f"pathlib.Path({str(self.source)!r}).write_bytes(b'changed original volume')\n"
+                        "pathlib.Path(sys.argv[sys.argv.index('--output') + 1]).write_bytes(b'output')\n"
+                        "print('LABR3_STATS {\"version\":1,\"stage\":\"raw2root\",\"counts\":{\"input_records\":1,\"output_hits\":1}}')\n")
+        result = subprocess.run(command, cwd=self.work, env=self.env, text=True, capture_output=True, timeout=30)
+        self.assertNotEqual(result.returncode, 0)
+        saved = self.manifest()
+        self.assertEqual(saved["input_preparation"]["status"], "succeeded")
+        self.assertEqual(saved["stages"][0]["status"], "succeeded")
+        self.assertEqual(saved["status"], "failed")
+        self.assertFalse(saved["input_unchanged"])
+        self.assertIn("File changed", result.stderr)
 
     def test_timeout_stops_child_and_records_failure(self):
         pid_file = self.work / "pid"

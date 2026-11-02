@@ -1,6 +1,6 @@
 out = sort
 
-sourcefile = main.cpp Sort.h Sort.cpp set.h ../../common/CommandLine.h
+sourcefile = main.cpp Sort.h Sort.cpp set.h ../../common/CommandLine.h ../../common/StageReport.h
 
 ROOT_CONFIG ?= root-config
 ROOTCFLAGS  = $(shell "$(ROOT_CONFIG)" --cflags)

@@ -73,7 +73,7 @@ def rebuild_events(sorted_path, variant, run, output_root):
     files = [REPO / variant / "build" / name
              for name in ("Makefile", "Build.cpp", "Build.h", "main.cpp", "set.h")]
     files += [REPO / "analysis" / name for name in ("EventAnalysis.h", "notebook_analysis.py")]
-    files += [REPO / "common/CommandLine.h"]
+    files += [REPO / "common" / name for name in ("CommandLine.h", "StageReport.h")]
     files += [REPO / variant / "sort" / name
               for name in ("LaBr3_cali.dat", "LaBr3_ts_offset.dat")]
     snapshots = {}
