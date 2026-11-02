@@ -395,6 +395,9 @@ python3 -B scripts/replay_pipeline.py results/run0014_attempt01/manifest.json \
 
 这些能量系数保留原始道址数值，不能据此认定已经完成 keV 刻度。
 分析其他运行数据前，应确认能量系数和时间偏移适用于该次测量。
+逐文件 SHA-256、Git 来源、当前适用范围和只读元数据审阅命令见
+[参数来源登记](docs/parameter-provenance.md)；实验条件、日志起止时间与用户补充的
+⁶⁰Co / LaBr₃ 信息见[真实样本记录](docs/runs.md)。
 
 ## 能谱与时间差 Notebook
 

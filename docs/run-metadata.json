@@ -1,0 +1,1127 @@
+{
+  "schema_version": 1,
+  "repository_head": "1ce821ca5e6156816236cf3a4e81bbee05527f12",
+  "audit_tool": {
+    "path": "scripts/audit_metadata.py",
+    "sha256": "d7250bb6512bdc05069897e7d7856b3e1eb8f03355eb108b83294bfa0ce74d51"
+  },
+  "scope": "Selected metadata and parameter files only; no BIN/ROOT records decoded",
+  "parameters": [
+    {
+      "variant": "DT5720_DPP_PSD",
+      "kind": "energy",
+      "path": "DT5720_DPP_PSD/sort/LaBr3_cali.dat",
+      "present": true,
+      "source_run": null,
+      "derivation": null,
+      "validated_for_runs": null,
+      "file": {
+        "path": "DT5720_DPP_PSD/sort/LaBr3_cali.dat",
+        "bytes": 80,
+        "sha256": "9553403d04bd0fa87d91b347272c92b6f4f2e10119fa1c7a3309d68872346935"
+      },
+      "rows": {
+        "0": {
+          "p0": "0",
+          "p1": "1",
+          "p2": "0",
+          "chi2": "0"
+        },
+        "1": {
+          "p0": "0",
+          "p1": "1",
+          "p2": "0",
+          "chi2": "0"
+        },
+        "2": {
+          "p0": "0",
+          "p1": "1",
+          "p2": "0",
+          "chi2": "0"
+        },
+        "3": {
+          "p0": "0",
+          "p1": "1",
+          "p2": "0",
+          "chi2": "0"
+        },
+        "4": {
+          "p0": "0",
+          "p1": "1",
+          "p2": "0",
+          "chi2": "0"
+        },
+        "5": {
+          "p0": "0",
+          "p1": "1",
+          "p2": "0",
+          "chi2": "0"
+        },
+        "6": {
+          "p0": "0",
+          "p1": "1",
+          "p2": "0",
+          "chi2": "0"
+        },
+        "7": {
+          "p0": "0",
+          "p1": "1",
+          "p2": "0",
+          "chi2": "0"
+        }
+      },
+      "git": {
+        "path_history_available": true,
+        "oldest_change_at_current_path": "b096cd81d7d58c32c059bf6aae67b4cff1884d68",
+        "latest_change_at_current_path": "b096cd81d7d58c32c059bf6aae67b4cff1884d68",
+        "matches_head": true
+      }
+    },
+    {
+      "variant": "DT5720_DPP_PSD",
+      "kind": "time_offset",
+      "path": "DT5720_DPP_PSD/sort/LaBr3_ts_offset.dat",
+      "present": true,
+      "source_run": null,
+      "derivation": null,
+      "validated_for_runs": null,
+      "file": {
+        "path": "DT5720_DPP_PSD/sort/LaBr3_ts_offset.dat",
+        "bytes": 35,
+        "sha256": "5ac760f7246c92aa52a0954db4caa7cd4c70104914d511b9052badf046a97ee0"
+      },
+      "rows": {
+        "0": {
+          "offset_ps": "0"
+        },
+        "1": {
+          "offset_ps": "0"
+        },
+        "2": {
+          "offset_ps": "0"
+        },
+        "3": {
+          "offset_ps": "7634"
+        },
+        "4": {
+          "offset_ps": "0"
+        },
+        "5": {
+          "offset_ps": "0"
+        },
+        "6": {
+          "offset_ps": "0"
+        },
+        "7": {
+          "offset_ps": "0"
+        }
+      },
+      "git": {
+        "path_history_available": true,
+        "oldest_change_at_current_path": "b096cd81d7d58c32c059bf6aae67b4cff1884d68",
+        "latest_change_at_current_path": "b096cd81d7d58c32c059bf6aae67b4cff1884d68",
+        "matches_head": true
+      }
+    },
+    {
+      "variant": "DT5730_DPP_PSD",
+      "kind": "energy",
+      "path": "DT5730_DPP_PSD/sort/LaBr3_cali.dat",
+      "present": true,
+      "source_run": null,
+      "derivation": null,
+      "validated_for_runs": null,
+      "file": {
+        "path": "DT5730_DPP_PSD/sort/LaBr3_cali.dat",
+        "bytes": 80,
+        "sha256": "9553403d04bd0fa87d91b347272c92b6f4f2e10119fa1c7a3309d68872346935"
+      },
+      "rows": {
+        "0": {
+          "p0": "0",
+          "p1": "1",
+          "p2": "0",
+          "chi2": "0"
+        },
+        "1": {
+          "p0": "0",
+          "p1": "1",
+          "p2": "0",
+          "chi2": "0"
+        },
+        "2": {
+          "p0": "0",
+          "p1": "1",
+          "p2": "0",
+          "chi2": "0"
+        },
+        "3": {
+          "p0": "0",
+          "p1": "1",
+          "p2": "0",
+          "chi2": "0"
+        },
+        "4": {
+          "p0": "0",
+          "p1": "1",
+          "p2": "0",
+          "chi2": "0"
+        },
+        "5": {
+          "p0": "0",
+          "p1": "1",
+          "p2": "0",
+          "chi2": "0"
+        },
+        "6": {
+          "p0": "0",
+          "p1": "1",
+          "p2": "0",
+          "chi2": "0"
+        },
+        "7": {
+          "p0": "0",
+          "p1": "1",
+          "p2": "0",
+          "chi2": "0"
+        }
+      },
+      "git": {
+        "path_history_available": true,
+        "oldest_change_at_current_path": "b096cd81d7d58c32c059bf6aae67b4cff1884d68",
+        "latest_change_at_current_path": "b096cd81d7d58c32c059bf6aae67b4cff1884d68",
+        "matches_head": true
+      }
+    },
+    {
+      "variant": "DT5730_DPP_PSD",
+      "kind": "time_offset",
+      "path": "DT5730_DPP_PSD/sort/LaBr3_ts_offset.dat",
+      "present": true,
+      "source_run": null,
+      "derivation": null,
+      "validated_for_runs": null,
+      "file": {
+        "path": "DT5730_DPP_PSD/sort/LaBr3_ts_offset.dat",
+        "bytes": 32,
+        "sha256": "0a6de13c947b7a4619a0d68c9a6e00b5f5e8b23cb4b9069e238c3a54296f4887"
+      },
+      "rows": {
+        "0": {
+          "offset_ps": "0"
+        },
+        "1": {
+          "offset_ps": "0"
+        },
+        "2": {
+          "offset_ps": "0"
+        },
+        "3": {
+          "offset_ps": "0"
+        },
+        "4": {
+          "offset_ps": "0"
+        },
+        "5": {
+          "offset_ps": "0"
+        },
+        "6": {
+          "offset_ps": "0"
+        },
+        "7": {
+          "offset_ps": "0"
+        }
+      },
+      "git": {
+        "path_history_available": true,
+        "oldest_change_at_current_path": "b096cd81d7d58c32c059bf6aae67b4cff1884d68",
+        "latest_change_at_current_path": "b096cd81d7d58c32c059bf6aae67b4cff1884d68",
+        "matches_head": true
+      }
+    },
+    {
+      "variant": "DT5730_DPP_PHA",
+      "kind": "energy",
+      "path": "DT5730_DPP_PHA/sort/LaBr3_cali.dat",
+      "present": true,
+      "source_run": null,
+      "derivation": null,
+      "validated_for_runs": null,
+      "file": {
+        "path": "DT5730_DPP_PHA/sort/LaBr3_cali.dat",
+        "bytes": 80,
+        "sha256": "9553403d04bd0fa87d91b347272c92b6f4f2e10119fa1c7a3309d68872346935"
+      },
+      "rows": {
+        "0": {
+          "p0": "0",
+          "p1": "1",
+          "p2": "0",
+          "chi2": "0"
+        },
+        "1": {
+          "p0": "0",
+          "p1": "1",
+          "p2": "0",
+          "chi2": "0"
+        },
+        "2": {
+          "p0": "0",
+          "p1": "1",
+          "p2": "0",
+          "chi2": "0"
+        },
+        "3": {
+          "p0": "0",
+          "p1": "1",
+          "p2": "0",
+          "chi2": "0"
+        },
+        "4": {
+          "p0": "0",
+          "p1": "1",
+          "p2": "0",
+          "chi2": "0"
+        },
+        "5": {
+          "p0": "0",
+          "p1": "1",
+          "p2": "0",
+          "chi2": "0"
+        },
+        "6": {
+          "p0": "0",
+          "p1": "1",
+          "p2": "0",
+          "chi2": "0"
+        },
+        "7": {
+          "p0": "0",
+          "p1": "1",
+          "p2": "0",
+          "chi2": "0"
+        }
+      },
+      "git": {
+        "path_history_available": true,
+        "oldest_change_at_current_path": "b096cd81d7d58c32c059bf6aae67b4cff1884d68",
+        "latest_change_at_current_path": "b096cd81d7d58c32c059bf6aae67b4cff1884d68",
+        "matches_head": true
+      }
+    },
+    {
+      "variant": "DT5730_DPP_PHA",
+      "kind": "time_offset",
+      "path": "DT5730_DPP_PHA/sort/LaBr3_ts_offset.dat",
+      "present": true,
+      "source_run": null,
+      "derivation": null,
+      "validated_for_runs": null,
+      "file": {
+        "path": "DT5730_DPP_PHA/sort/LaBr3_ts_offset.dat",
+        "bytes": 35,
+        "sha256": "5ac760f7246c92aa52a0954db4caa7cd4c70104914d511b9052badf046a97ee0"
+      },
+      "rows": {
+        "0": {
+          "offset_ps": "0"
+        },
+        "1": {
+          "offset_ps": "0"
+        },
+        "2": {
+          "offset_ps": "0"
+        },
+        "3": {
+          "offset_ps": "7634"
+        },
+        "4": {
+          "offset_ps": "0"
+        },
+        "5": {
+          "offset_ps": "0"
+        },
+        "6": {
+          "offset_ps": "0"
+        },
+        "7": {
+          "offset_ps": "0"
+        }
+      },
+      "git": {
+        "path_history_available": true,
+        "oldest_change_at_current_path": "b096cd81d7d58c32c059bf6aae67b4cff1884d68",
+        "latest_change_at_current_path": "b096cd81d7d58c32c059bf6aae67b4cff1884d68",
+        "matches_head": true
+      }
+    }
+  ],
+  "runs": [
+    {
+      "directory": "data/DT5720_DPP_PSD/DAQ/run",
+      "variant_directory": "DT5720_DPP_PSD",
+      "settings": null,
+      "run_info": {
+        "file": {
+          "path": "data/DT5720_DPP_PSD/DAQ/run/run.info",
+          "bytes": 656,
+          "sha256": "bd6bbc2f0948c9ad34d40e7958194f3268bc0203840de83fe3615576bb64ffe9"
+        },
+        "fields": {
+          "id": "run",
+          "time.start": "2022/11/27 16:39:08.430+0800",
+          "time.stop": "2022/11/27 16:39:31.783+0800",
+          "time.real": "00:00:23",
+          "board.2-3-1136.0.calibration.energy.c0": "0.0",
+          "board.2-3-1136.0.calibration.energy.c1": "1.0",
+          "board.2-3-1136.0.calibration.energy.c2": "0.0",
+          "board.2-3-1136.0.calibration.energy.uom": "keV"
+        },
+        "wall_elapsed_seconds_from_endpoints": 23.353,
+        "live_time_seconds": null,
+        "acquisition_complete": null
+      }
+    },
+    {
+      "directory": "data/DT5720_DPP_PSD/DAQ/run_1",
+      "variant_directory": "DT5720_DPP_PSD",
+      "settings": {
+        "file": {
+          "path": "data/DT5720_DPP_PSD/DAQ/run_1/settings.xml",
+          "bytes": 227854,
+          "sha256": "ab6b5fee462411f48b1553d5d9433975c37f0011838dde93ffe1621430e80227"
+        },
+        "acquisition": {
+          "runId": "run_1",
+          "acquisitionMode": "WAVES",
+          "timedRunEnabled": "false",
+          "timedRunDuration": "100000",
+          "saveRaw": "false",
+          "saveFiltered": "false",
+          "saveUnfiltered": "true",
+          "fileFormatList": "BIN",
+          "energyFormatList": "ADCCH",
+          "savingOptionList": "NCHFILES",
+          "limitedFileSize": "false",
+          "fileSize": "10.0"
+        },
+        "boards": [
+          {
+            "id": "2-3-1136",
+            "modelName": "DT5720B",
+            "serialNumber": "1136",
+            "active": "true",
+            "adcBitCount": "12",
+            "sampleTime": "4000",
+            "channelCount": "4",
+            "dppType": "DPP_PSD",
+            "parameters": {
+              "SRV_PARAM_CH_BLINE_DCOFFSET": {
+                "value": "20.0",
+                "unit": "PERCENT"
+              },
+              "SRV_PARAM_CH_ENABLED": {
+                "value": "true",
+                "unit": null
+              },
+              "SRV_PARAM_CH_GATE": {
+                "value": "300.0",
+                "unit": "NANOS"
+              },
+              "SRV_PARAM_CH_GATEPRE": {
+                "value": "48.0",
+                "unit": "NANOS"
+              },
+              "SRV_PARAM_CH_GATESHORT": {
+                "value": "80.0",
+                "unit": "NANOS"
+              },
+              "SRV_PARAM_CH_POLARITY": {
+                "value": "POLARITY_NEGATIVE",
+                "unit": null
+              },
+              "SRV_PARAM_CH_PRETRG": {
+                "value": "400.0",
+                "unit": "NANOS"
+              },
+              "SRV_PARAM_CH_SELF_TRG_ENABLE": {
+                "value": "true",
+                "unit": null
+              },
+              "SRV_PARAM_CH_THRESHOLD": {
+                "value": "50.0",
+                "unit": "LSB"
+              },
+              "SRV_PARAM_CH_TIME_OFFSET": {
+                "value": "0.0",
+                "unit": "NANOS"
+              },
+              "SRV_PARAM_RECLEN": {
+                "value": "1600.0",
+                "unit": "NANOS"
+              },
+              "SRV_PARAM_WAVEFORMS": {
+                "value": "true",
+                "unit": null
+              },
+              "SW_PARAMETER_CH_ENERGY_CALIBRATION_P0": {
+                "value": "0.0",
+                "unit": null
+              },
+              "SW_PARAMETER_CH_ENERGY_CALIBRATION_P1": {
+                "value": "1.0",
+                "unit": null
+              },
+              "SW_PARAMETER_CH_ENERGY_CALIBRATION_P2": {
+                "value": "0.0",
+                "unit": null
+              },
+              "SW_PARAMETER_CH_ENERGY_CALIBRATION_UDM": {
+                "value": "keV",
+                "unit": null
+              }
+            },
+            "channel_overrides": {
+              "0": {
+                "SRV_PARAM_CH_ENABLED": {
+                  "value": "true",
+                  "unit": null
+                }
+              },
+              "1": {
+                "SRV_PARAM_CH_ENABLED": {
+                  "value": "false",
+                  "unit": null
+                }
+              },
+              "2": {
+                "SRV_PARAM_CH_ENABLED": {
+                  "value": "false",
+                  "unit": null
+                }
+              },
+              "3": {
+                "SRV_PARAM_CH_ENABLED": {
+                  "value": "false",
+                  "unit": null
+                }
+              }
+            }
+          }
+        ]
+      },
+      "run_info": {
+        "file": {
+          "path": "data/DT5720_DPP_PSD/DAQ/run_1/run.info",
+          "bytes": 661,
+          "sha256": "caea42f6df60066f0d41f84850ebb70702e838ca0189ca1a35a7ff4403291223"
+        },
+        "fields": {
+          "id": "run_1",
+          "time.start": "2022/11/27 15:57:55.901+0800",
+          "time.stop": "2022/11/27 16:04:30.566+0800",
+          "time.real": "00:06:34",
+          "board.2-3-1136.0.calibration.energy.c0": "0.0",
+          "board.2-3-1136.0.calibration.energy.c1": "1.0",
+          "board.2-3-1136.0.calibration.energy.c2": "0.0",
+          "board.2-3-1136.0.calibration.energy.uom": "keV"
+        },
+        "wall_elapsed_seconds_from_endpoints": 394.665,
+        "live_time_seconds": null,
+        "acquisition_complete": null
+      }
+    },
+    {
+      "directory": "data/DT5720_DPP_PSD/DAQ/run_2",
+      "variant_directory": "DT5720_DPP_PSD",
+      "settings": {
+        "file": {
+          "path": "data/DT5720_DPP_PSD/DAQ/run_2/settings.xml",
+          "bytes": 227855,
+          "sha256": "8d8c9a4ee51dfe8e6150593480cf5463d3cf1134bfc2feae2f983dad15356859"
+        },
+        "acquisition": {
+          "runId": "run_2",
+          "acquisitionMode": "WAVES",
+          "timedRunEnabled": "false",
+          "timedRunDuration": "100000",
+          "saveRaw": "false",
+          "saveFiltered": "false",
+          "saveUnfiltered": "true",
+          "fileFormatList": "ROOT",
+          "energyFormatList": "ADCCH",
+          "savingOptionList": "NCHFILES",
+          "limitedFileSize": "false",
+          "fileSize": "10.0"
+        },
+        "boards": [
+          {
+            "id": "2-3-1136",
+            "modelName": "DT5720B",
+            "serialNumber": "1136",
+            "active": "true",
+            "adcBitCount": "12",
+            "sampleTime": "4000",
+            "channelCount": "4",
+            "dppType": "DPP_PSD",
+            "parameters": {
+              "SRV_PARAM_CH_BLINE_DCOFFSET": {
+                "value": "20.0",
+                "unit": "PERCENT"
+              },
+              "SRV_PARAM_CH_ENABLED": {
+                "value": "true",
+                "unit": null
+              },
+              "SRV_PARAM_CH_GATE": {
+                "value": "300.0",
+                "unit": "NANOS"
+              },
+              "SRV_PARAM_CH_GATEPRE": {
+                "value": "48.0",
+                "unit": "NANOS"
+              },
+              "SRV_PARAM_CH_GATESHORT": {
+                "value": "80.0",
+                "unit": "NANOS"
+              },
+              "SRV_PARAM_CH_POLARITY": {
+                "value": "POLARITY_NEGATIVE",
+                "unit": null
+              },
+              "SRV_PARAM_CH_PRETRG": {
+                "value": "400.0",
+                "unit": "NANOS"
+              },
+              "SRV_PARAM_CH_SELF_TRG_ENABLE": {
+                "value": "true",
+                "unit": null
+              },
+              "SRV_PARAM_CH_THRESHOLD": {
+                "value": "50.0",
+                "unit": "LSB"
+              },
+              "SRV_PARAM_CH_TIME_OFFSET": {
+                "value": "0.0",
+                "unit": "NANOS"
+              },
+              "SRV_PARAM_RECLEN": {
+                "value": "1600.0",
+                "unit": "NANOS"
+              },
+              "SRV_PARAM_WAVEFORMS": {
+                "value": "true",
+                "unit": null
+              },
+              "SW_PARAMETER_CH_ENERGY_CALIBRATION_P0": {
+                "value": "0.0",
+                "unit": null
+              },
+              "SW_PARAMETER_CH_ENERGY_CALIBRATION_P1": {
+                "value": "1.0",
+                "unit": null
+              },
+              "SW_PARAMETER_CH_ENERGY_CALIBRATION_P2": {
+                "value": "0.0",
+                "unit": null
+              },
+              "SW_PARAMETER_CH_ENERGY_CALIBRATION_UDM": {
+                "value": "keV",
+                "unit": null
+              }
+            },
+            "channel_overrides": {
+              "0": {
+                "SRV_PARAM_CH_ENABLED": {
+                  "value": "true",
+                  "unit": null
+                }
+              },
+              "1": {
+                "SRV_PARAM_CH_ENABLED": {
+                  "value": "false",
+                  "unit": null
+                }
+              },
+              "2": {
+                "SRV_PARAM_CH_ENABLED": {
+                  "value": "false",
+                  "unit": null
+                }
+              },
+              "3": {
+                "SRV_PARAM_CH_ENABLED": {
+                  "value": "false",
+                  "unit": null
+                }
+              }
+            }
+          }
+        ]
+      },
+      "run_info": {
+        "file": {
+          "path": "data/DT5720_DPP_PSD/DAQ/run_2/run.info",
+          "bytes": 653,
+          "sha256": "501a742b4f52b83e8bf5cef0787e5ac8d7d3e49d80b376d10e8914f5751acb1b"
+        },
+        "fields": {
+          "id": "run_2",
+          "time.start": "2022/11/27 16:04:44.983+0800",
+          "time.stop": "2022/11/27 16:08:23.261+0800",
+          "time.real": "00:03:38",
+          "board.2-3-1136.0.calibration.energy.c0": "0.0",
+          "board.2-3-1136.0.calibration.energy.c1": "1.0",
+          "board.2-3-1136.0.calibration.energy.c2": "0.0",
+          "board.2-3-1136.0.calibration.energy.uom": "keV"
+        },
+        "wall_elapsed_seconds_from_endpoints": 218.278,
+        "live_time_seconds": null,
+        "acquisition_complete": null
+      }
+    },
+    {
+      "directory": "data/DT5720_DPP_PSD/DAQ/run_3",
+      "variant_directory": "DT5720_DPP_PSD",
+      "settings": {
+        "file": {
+          "path": "data/DT5720_DPP_PSD/DAQ/run_3/settings.xml",
+          "bytes": 227571,
+          "sha256": "f556326608989faa3f6eb8adbf804cf1fcd5703fb3c984eecb2e252242b16310"
+        },
+        "acquisition": {
+          "runId": "run_3",
+          "acquisitionMode": "WAVES",
+          "timedRunEnabled": "false",
+          "timedRunDuration": "100",
+          "saveRaw": "false",
+          "saveFiltered": "false",
+          "saveUnfiltered": "true",
+          "fileFormatList": "BIN",
+          "energyFormatList": "ADCCH",
+          "savingOptionList": "NCHFILES",
+          "limitedFileSize": "false",
+          "fileSize": "10.0"
+        },
+        "boards": [
+          {
+            "id": "2-3-1136",
+            "modelName": "DT5720B",
+            "serialNumber": "1136",
+            "active": "true",
+            "adcBitCount": "12",
+            "sampleTime": "4000",
+            "channelCount": "4",
+            "dppType": "DPP_PSD",
+            "parameters": {
+              "SRV_PARAM_CH_BLINE_DCOFFSET": {
+                "value": "20.0",
+                "unit": "PERCENT"
+              },
+              "SRV_PARAM_CH_ENABLED": {
+                "value": "true",
+                "unit": null
+              },
+              "SRV_PARAM_CH_GATE": {
+                "value": "300.0",
+                "unit": "NANOS"
+              },
+              "SRV_PARAM_CH_GATEPRE": {
+                "value": "48.0",
+                "unit": "NANOS"
+              },
+              "SRV_PARAM_CH_GATESHORT": {
+                "value": "80.0",
+                "unit": "NANOS"
+              },
+              "SRV_PARAM_CH_POLARITY": {
+                "value": "POLARITY_NEGATIVE",
+                "unit": null
+              },
+              "SRV_PARAM_CH_PRETRG": {
+                "value": "200.0",
+                "unit": "NANOS"
+              },
+              "SRV_PARAM_CH_SELF_TRG_ENABLE": {
+                "value": "true",
+                "unit": null
+              },
+              "SRV_PARAM_CH_THRESHOLD": {
+                "value": "50.0",
+                "unit": "LSB"
+              },
+              "SRV_PARAM_CH_TIME_OFFSET": {
+                "value": "0.0",
+                "unit": "NANOS"
+              },
+              "SRV_PARAM_RECLEN": {
+                "value": "512.0",
+                "unit": "NANOS"
+              },
+              "SRV_PARAM_WAVEFORMS": {
+                "value": "true",
+                "unit": null
+              },
+              "SW_PARAMETER_CH_ENERGY_CALIBRATION_P0": {
+                "value": "0.0",
+                "unit": null
+              },
+              "SW_PARAMETER_CH_ENERGY_CALIBRATION_P1": {
+                "value": "1.0",
+                "unit": null
+              },
+              "SW_PARAMETER_CH_ENERGY_CALIBRATION_P2": {
+                "value": "0.0",
+                "unit": null
+              },
+              "SW_PARAMETER_CH_ENERGY_CALIBRATION_UDM": {
+                "value": "keV",
+                "unit": null
+              }
+            },
+            "channel_overrides": {
+              "0": {},
+              "1": {
+                "SRV_PARAM_CH_ENABLED": {
+                  "value": "false",
+                  "unit": null
+                }
+              },
+              "2": {
+                "SRV_PARAM_CH_ENABLED": {
+                  "value": "false",
+                  "unit": null
+                }
+              },
+              "3": {
+                "SRV_PARAM_CH_ENABLED": {
+                  "value": "false",
+                  "unit": null
+                }
+              }
+            }
+          }
+        ]
+      },
+      "run_info": {
+        "file": {
+          "path": "data/DT5720_DPP_PSD/DAQ/run_3/run.info",
+          "bytes": 661,
+          "sha256": "59b130453794d0bb6ec5af09514fe9accaecd2b6c7fd5e4e046e084806369736"
+        },
+        "fields": {
+          "id": "run_3",
+          "time.start": "2022/11/27 16:41:46.420+0800",
+          "time.stop": "2022/11/27 16:45:36.886+0800",
+          "time.real": "00:03:50",
+          "board.2-3-1136.0.calibration.energy.c0": "0.0",
+          "board.2-3-1136.0.calibration.energy.c1": "1.0",
+          "board.2-3-1136.0.calibration.energy.c2": "0.0",
+          "board.2-3-1136.0.calibration.energy.uom": "keV"
+        },
+        "wall_elapsed_seconds_from_endpoints": 230.466,
+        "live_time_seconds": null,
+        "acquisition_complete": null
+      }
+    },
+    {
+      "directory": "data/DT5720_DPP_PSD/DAQ/run_4",
+      "variant_directory": "DT5720_DPP_PSD",
+      "settings": {
+        "file": {
+          "path": "data/DT5720_DPP_PSD/DAQ/run_4/settings.xml",
+          "bytes": 227847,
+          "sha256": "71e3bac6c38a68b7812a7f748f26ba66de84c4106d44ea09af58c3e278ce588f"
+        },
+        "acquisition": {
+          "runId": "run_4",
+          "acquisitionMode": "WAVES",
+          "timedRunEnabled": "false",
+          "timedRunDuration": "100",
+          "saveRaw": "true",
+          "saveFiltered": "true",
+          "saveUnfiltered": "true",
+          "fileFormatList": "BIN",
+          "energyFormatList": "ADCCH",
+          "savingOptionList": "NCHFILES",
+          "limitedFileSize": "true",
+          "fileSize": "1.0"
+        },
+        "boards": [
+          {
+            "id": "2-3-1136",
+            "modelName": "DT5720B",
+            "serialNumber": "1136",
+            "active": "true",
+            "adcBitCount": "12",
+            "sampleTime": "4000",
+            "channelCount": "4",
+            "dppType": "DPP_PSD",
+            "parameters": {
+              "SRV_PARAM_CH_BLINE_DCOFFSET": {
+                "value": "20.0",
+                "unit": "PERCENT"
+              },
+              "SRV_PARAM_CH_ENABLED": {
+                "value": "true",
+                "unit": null
+              },
+              "SRV_PARAM_CH_GATE": {
+                "value": "200.0",
+                "unit": "NANOS"
+              },
+              "SRV_PARAM_CH_GATEPRE": {
+                "value": "40.0",
+                "unit": "NANOS"
+              },
+              "SRV_PARAM_CH_GATESHORT": {
+                "value": "80.0",
+                "unit": "NANOS"
+              },
+              "SRV_PARAM_CH_POLARITY": {
+                "value": "POLARITY_NEGATIVE",
+                "unit": null
+              },
+              "SRV_PARAM_CH_PRETRG": {
+                "value": "200.0",
+                "unit": "NANOS"
+              },
+              "SRV_PARAM_CH_SELF_TRG_ENABLE": {
+                "value": "true",
+                "unit": null
+              },
+              "SRV_PARAM_CH_THRESHOLD": {
+                "value": "80.0",
+                "unit": "LSB"
+              },
+              "SRV_PARAM_CH_TIME_OFFSET": {
+                "value": "0.0",
+                "unit": "NANOS"
+              },
+              "SRV_PARAM_RECLEN": {
+                "value": "512.0",
+                "unit": "NANOS"
+              },
+              "SRV_PARAM_WAVEFORMS": {
+                "value": "true",
+                "unit": null
+              },
+              "SW_PARAMETER_CH_ENERGY_CALIBRATION_P0": {
+                "value": "0.0",
+                "unit": null
+              },
+              "SW_PARAMETER_CH_ENERGY_CALIBRATION_P1": {
+                "value": "1.0",
+                "unit": null
+              },
+              "SW_PARAMETER_CH_ENERGY_CALIBRATION_P2": {
+                "value": "0.0",
+                "unit": null
+              },
+              "SW_PARAMETER_CH_ENERGY_CALIBRATION_UDM": {
+                "value": "keV",
+                "unit": null
+              }
+            },
+            "channel_overrides": {
+              "0": {
+                "SRV_PARAM_CH_ENABLED": {
+                  "value": "false",
+                  "unit": null
+                }
+              },
+              "1": {
+                "SRV_PARAM_CH_ENABLED": {
+                  "value": "true",
+                  "unit": null
+                }
+              },
+              "2": {
+                "SRV_PARAM_CH_ENABLED": {
+                  "value": "false",
+                  "unit": null
+                }
+              },
+              "3": {
+                "SRV_PARAM_CH_ENABLED": {
+                  "value": "false",
+                  "unit": null
+                }
+              }
+            }
+          }
+        ]
+      },
+      "run_info": {
+        "file": {
+          "path": "data/DT5720_DPP_PSD/DAQ/run_4/run.info",
+          "bytes": 661,
+          "sha256": "56dc86fce700756db33bf30bcdfc29a81fea3505e59e9f6917d8c781e3220cf2"
+        },
+        "fields": {
+          "id": "run_4",
+          "time.start": "2022/12/03 16:08:22.420+0800",
+          "time.stop": "2022/12/03 16:09:45.119+0800",
+          "time.real": "00:01:22",
+          "board.2-3-1136.1.calibration.energy.c0": "0.0",
+          "board.2-3-1136.1.calibration.energy.c1": "1.0",
+          "board.2-3-1136.1.calibration.energy.c2": "0.0",
+          "board.2-3-1136.1.calibration.energy.uom": "keV"
+        },
+        "wall_elapsed_seconds_from_endpoints": 82.699,
+        "live_time_seconds": null,
+        "acquisition_complete": null
+      }
+    },
+    {
+      "directory": "data/DT5720_DPP_PSD/DAQ/run_5",
+      "variant_directory": "DT5720_DPP_PSD",
+      "settings": {
+        "file": {
+          "path": "data/DT5720_DPP_PSD/DAQ/run_5/settings.xml",
+          "bytes": 227848,
+          "sha256": "6b7ed376f6a01535c98ead30b71292927a54344fd4c9ff2713a3cf7476944e1e"
+        },
+        "acquisition": {
+          "runId": "run_5",
+          "acquisitionMode": "WAVES",
+          "timedRunEnabled": "false",
+          "timedRunDuration": "100",
+          "saveRaw": "true",
+          "saveFiltered": "true",
+          "saveUnfiltered": "true",
+          "fileFormatList": "BIN",
+          "energyFormatList": "ADCCH",
+          "savingOptionList": "NCHFILES",
+          "limitedFileSize": "false",
+          "fileSize": "1.0"
+        },
+        "boards": [
+          {
+            "id": "2-3-1136",
+            "modelName": "DT5720B",
+            "serialNumber": "1136",
+            "active": "true",
+            "adcBitCount": "12",
+            "sampleTime": "4000",
+            "channelCount": "4",
+            "dppType": "DPP_PSD",
+            "parameters": {
+              "SRV_PARAM_CH_BLINE_DCOFFSET": {
+                "value": "20.0",
+                "unit": "PERCENT"
+              },
+              "SRV_PARAM_CH_ENABLED": {
+                "value": "true",
+                "unit": null
+              },
+              "SRV_PARAM_CH_GATE": {
+                "value": "200.0",
+                "unit": "NANOS"
+              },
+              "SRV_PARAM_CH_GATEPRE": {
+                "value": "40.0",
+                "unit": "NANOS"
+              },
+              "SRV_PARAM_CH_GATESHORT": {
+                "value": "80.0",
+                "unit": "NANOS"
+              },
+              "SRV_PARAM_CH_POLARITY": {
+                "value": "POLARITY_NEGATIVE",
+                "unit": null
+              },
+              "SRV_PARAM_CH_PRETRG": {
+                "value": "200.0",
+                "unit": "NANOS"
+              },
+              "SRV_PARAM_CH_SELF_TRG_ENABLE": {
+                "value": "true",
+                "unit": null
+              },
+              "SRV_PARAM_CH_THRESHOLD": {
+                "value": "80.0",
+                "unit": "LSB"
+              },
+              "SRV_PARAM_CH_TIME_OFFSET": {
+                "value": "0.0",
+                "unit": "NANOS"
+              },
+              "SRV_PARAM_RECLEN": {
+                "value": "512.0",
+                "unit": "NANOS"
+              },
+              "SRV_PARAM_WAVEFORMS": {
+                "value": "true",
+                "unit": null
+              },
+              "SW_PARAMETER_CH_ENERGY_CALIBRATION_P0": {
+                "value": "0.0",
+                "unit": null
+              },
+              "SW_PARAMETER_CH_ENERGY_CALIBRATION_P1": {
+                "value": "1.0",
+                "unit": null
+              },
+              "SW_PARAMETER_CH_ENERGY_CALIBRATION_P2": {
+                "value": "0.0",
+                "unit": null
+              },
+              "SW_PARAMETER_CH_ENERGY_CALIBRATION_UDM": {
+                "value": "keV",
+                "unit": null
+              }
+            },
+            "channel_overrides": {
+              "0": {
+                "SRV_PARAM_CH_ENABLED": {
+                  "value": "false",
+                  "unit": null
+                }
+              },
+              "1": {
+                "SRV_PARAM_CH_ENABLED": {
+                  "value": "true",
+                  "unit": null
+                }
+              },
+              "2": {
+                "SRV_PARAM_CH_ENABLED": {
+                  "value": "false",
+                  "unit": null
+                }
+              },
+              "3": {
+                "SRV_PARAM_CH_ENABLED": {
+                  "value": "false",
+                  "unit": null
+                }
+              }
+            }
+          }
+        ]
+      },
+      "run_info": {
+        "file": {
+          "path": "data/DT5720_DPP_PSD/DAQ/run_5/run.info",
+          "bytes": 661,
+          "sha256": "e65ec0061fcaa58c526f23d7bbafd684659f59a75d2f75eb2638de78c37bff55"
+        },
+        "fields": {
+          "id": "run_5",
+          "time.start": "2022/12/03 16:10:26.451+0800",
+          "time.stop": "2022/12/03 16:24:09.807+0800",
+          "time.real": "00:13:43",
+          "board.2-3-1136.1.calibration.energy.c0": "0.0",
+          "board.2-3-1136.1.calibration.energy.c1": "1.0",
+          "board.2-3-1136.1.calibration.energy.c2": "0.0",
+          "board.2-3-1136.1.calibration.energy.uom": "keV"
+        },
+        "wall_elapsed_seconds_from_endpoints": 823.356,
+        "live_time_seconds": null,
+        "acquisition_complete": null
+      }
+    }
+  ],
+  "source_files_unchanged": true
+}
