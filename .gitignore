@@ -2,6 +2,7 @@
 /data/
 /rootfile/
 /results/
+/.cache/
 *.root
 *.root.partial.*
 *.BIN

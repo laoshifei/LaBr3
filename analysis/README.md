@@ -29,6 +29,51 @@ python3 -B analysis/run_analysis.py --input /path/to/events.root \
 的归档重跑，并保留原输入和参数校验值。
 批处理完整用法见 [项目说明](../README.md#批处理入口)。
 
+## 原始道址谱与两点刻度候选
+
+`energy_calibration.py` 从原始 `tr_chNN` 树读取道址，按指定板号/通道拟合两条参考峰，
+保存线性映射候选及区间敏感性。实际 run0009 的结果和限制见
+[⁶⁰Co 刻度候选记录](../docs/calibration-run0009.md)。需要 PyROOT、NumPy 和 Matplotlib。
+
+```bash
+python3 -B analysis/energy_calibration.py \
+  --input DT5730_DPP_PSD/raw2root/run0009.root \
+  --config analysis/co60_run0009.json \
+  --reference-pdf /path/to/Co-60_tables.pdf \
+  --output-dir results/run0009_co60_candidate_attempt01
+```
+
+配置示例 [co60_run0009.json](co60_run0009.json) 使用 schema version 1：
+
+- `variant`、`run` 为来源标签，`source_identification` 说明放射源归属依据；
+  可选 `input_sha256` 将分析固定到实际输入内容，示例已固定 run0009。
+- `reference` 必须包含核素、HTTPS 来源、PDF SHA-256、从 1 起算的 PDF 页码、
+  两个递增的 `energy_keV` 和对应 `standard_uncertainty_keV`。
+- `channels` 中每个板号/通道组合必须唯一；`ranges` 是两条峰的 nominal 边界，
+  `range_checks` 保存其他命名方案。每对范围须有序且不相交，每个至少含 8 个 bin，
+  边界必须为半整数。完整字段名见示例；错误类型、未知或重复字段会被拒绝。
+
+程序读取每棵同名通道树的最高 cycle，记录其他 cycle 而不累加，要求标量
+`board: Short_t`、`channel: Short_t`、`energy_ch: UShort_t`。记录通道必须与树名一致；
+板号筛选后的全部记录填入 65,536 个 bin，整数道址位于中心，计数与树中选中记录交叉核对。
+不读取波形，不依赖排序文件、符合事件或历史能量参数。
+
+结果必须保存到新目录。`manifest.json` 保存输入/产物哈希、配置/源码副本、软件版本和状态；
+`results.json` 保存每个区间的完整峰拟合、系数协方差、条件宽度及区间跨度；另有 `fits.csv`、
+`spectra.root` 和 nominal 拟合/残差 PNG。可选 `--reference-pdf` 必须与配置哈希一致，
+提供时会复制到归档；省略时仅保留参考出处声明，程序不会下载或核验参考原文。
+输入、配置、源码及所提供参考副本均作哈希复查。
+
+该入口使用下文的共享峰模型。两点确定两个系数，刻度自由度为 0，所有系数均标记为候选，
+不据此声明线性已验证；程序不生成 `.dat`。误差传播保留峰位/宽度相关性，两个峰拟合及
+两个参考能量按独立处理，模型/范围系统不确定度不在误差内。任一峰数值不可用时，
+该方案的 `candidate` 为 `null`，保存原因；分析成功状态不等于得到可采用的物理刻度。
+输入或配置错误返回非零；新目录创建后的异常和键盘中断在清单中记录失败或中断状态。
+
+归档源码位于 `source_snapshot/analysis/`，包含该入口和 `notebook_analysis.py`；
+用其中的入口、`configuration.json` 和 `reference.pdf` 指向新输出目录即可重跑，
+完整命令见结果记录。该清单独立于 `scripts/replay_pipeline.py` 的 pipeline 清单。
+
 ## 数据与筛选约定
 
 输入树名为 `tr`，`m` 为 `UShort_t`；`board[m]`、`channel[m]` 为 `Short_t`，

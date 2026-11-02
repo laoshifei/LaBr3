@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "variant": "DT5730_DPP_PSD",
+  "run": 9,
+  "input_sha256": "62337d90a6926840d664e0efd6343cd4c298d95fd07079d64bc72503edaef3ec",
+  "source_identification": "User recall on 2026-11-02: Co-60 source and LaBr3 detectors for PSD run0009. Specific detector/channel mapping and historical processing provenance remain unknown.",
+  "reference": {
+    "nuclide": "Co-60",
+    "source_url": "https://www.lnhb.fr/nuclides/Co-60_tables.pdf",
+    "pdf_sha256": "536ec5d974b1c08ef6f87714b9dc99bffd10018328cbaad28e397dd8a25d2b70",
+    "pdf_page": 4,
+    "energy_keV": [1173.228, 1332.492],
+    "standard_uncertainty_keV": [0.003, 0.004]
+  },
+  "channels": [
+    {
+      "board": 0,
+      "channel": 2,
+      "ranges": [[589.5, 614.5], [669.5, 696.5]],
+      "range_checks": {
+        "narrow": [[591.5, 612.5], [673.5, 692.5]],
+        "wide": [[585.5, 618.5], [665.5, 700.5]]
+      }
+    },
+    {
+      "board": 0,
+      "channel": 3,
+      "ranges": [[1099.5, 1144.5], [1249.5, 1296.5]],
+      "range_checks": {
+        "narrow": [[1105.5, 1137.5], [1255.5, 1290.5]],
+        "wide": [[1093.5, 1150.5], [1243.5, 1302.5]]
+      }
+    }
+  ]
+}

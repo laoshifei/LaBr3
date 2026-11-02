@@ -17,6 +17,7 @@ python3 tests/test_alignment.py
 python3 tests/test_paths.py
 python3 tests/test_analysis.py
 python3 tests/test_peak_fit.py
+python3 tests/test_energy_calibration.py
 python3 tests/test_make.py
 python3 tests/test_bin_inputs.py
 python3 tests/test_pipeline.py
@@ -293,6 +294,43 @@ python3 -B scripts/audit_metadata.py --output /tmp/labr3-metadata-audit.json
 核验日志：`/tmp/labr3-validation-20261102/metadata-audit-verification.log`。
 结果与适用范围见 [参数来源登记](../docs/parameter-provenance.md) 和
 [真实样本记录](../docs/runs.md)。这些元数据检查没有解码或验证额外运行的数据完整性。
+
+提交并推送 `98dce28` 后，新增原始道址谱的两点能量刻度候选入口。
+`test_energy_calibration.py` 的 **12 项**检查覆盖两点映射与失败拟合处理，
+峰位/宽度及参考能量协方差传播的 20 万次蒙特卡洛核对，配置字段/范围/哈希约束，
+最高 ROOT cycle 和板号筛选、整数道址 bin 中心、标量类型和错名通道拒绝，
+空谱、已有输出保护、失败状态，以及从归档源码/配置/参考副本重跑。
+测试使用合成 ROOT，不依赖本地实验文件。
+
+在 Python 3.13.5 / ROOT 6.34.10 / NumPy 2.2.4 / Matplotlib 3.11.2 下，
+这 12 项及原有 `test_peak_fit.py` 的 6 项全部通过，无跳过项。本轮共 **18 项**，
+结合前轮基线共有 **232 个**已覆盖检查方法；没有重复未受影响的处理链回归。
+
+```bash
+env PYTHONDONTWRITEBYTECODE=1 MPLCONFIGDIR=/tmp/labr3-validation-20261030/matplotlib \
+    /tmp/labr3-validation-20261030/bin/python -B tests/test_energy_calibration.py -v
+env PYTHONDONTWRITEBYTECODE=1 MPLCONFIGDIR=/tmp/labr3-validation-20261030/matplotlib \
+    /tmp/labr3-validation-20261030/bin/python -B tests/test_peak_fit.py -v
+```
+
+日志位于 `/tmp/labr3-validation-20261102/energy-calibration-tests.log` 和
+`energy-existing-fit-tests.log`。真实 run0009 另用以下命令成功分析：
+
+```bash
+env PYTHONDONTWRITEBYTECODE=1 MPLCONFIGDIR=/tmp/labr3-validation-20261030/matplotlib \
+    /tmp/labr3-validation-20261030/bin/python -B analysis/energy_calibration.py \
+    --input DT5730_DPP_PSD/raw2root/run0009.root \
+    --config analysis/co60_run0009.json \
+    --reference-pdf .cache/reference-data/2026-11-02/Co-60_tables.pdf \
+    --output-dir results/run0009_co60_candidate_20261102
+```
+
+复查时需使用新的输出目录。实际运行日志在
+`.cache/calibration-review/2026-11-02/candidate-run.log`；结果清单记录输入哈希未变，
+两通道共 3,096,191 条，nominal/narrow/wide 六组候选及 12 次峰拟合均已保存。
+另逐项核对产物哈希，并检查两张 nominal 拟合/残差图。
+低能峰的模型/区间依赖尚未解决，未应用候选或改动原始 ROOT 和历史参数；
+详细数值及解释见 [run0009 刻度候选记录](../docs/calibration-run0009.md)。
 
 事件构建必须遵循以下规则：时间戳按 ps 存储；以事件首条记录起算，严格小于
 50 ns 的记录进入同一事件；恰好 50 ns 的记录开启下一事件。容量为 8；同窗第 9 条

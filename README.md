@@ -399,6 +399,10 @@ python3 -B scripts/replay_pipeline.py results/run0014_attempt01/manifest.json \
 [参数来源登记](docs/parameter-provenance.md)；实验条件、日志起止时间与用户补充的
 ⁶⁰Co / LaBr₃ 信息见[真实样本记录](docs/runs.md)。
 
+run0009 原始通道树另有[两点能量刻度候选及复现命令](docs/calibration-run0009.md)，
+由 `analysis/energy_calibration.py` 保存峰拟合、系数协方差、区间敏感性和输入/源码归档。
+当前仅涉及该输入的 board 0、通道 2/3；低能峰模型及独立线性验证仍待完善，候选未应用到排序参数。
+
 ## 能谱与时间差 Notebook
 
 打开 [02_real_run_energy_and_timing.ipynb](jupyter/02_real_run_energy_and_timing.ipynb)，
