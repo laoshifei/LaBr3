@@ -1,5 +1,5 @@
 OBJ = raw2root
-sourcefile = main.cpp set.h
+sourcefile = main.cpp set.h ../../common/CommandLine.h
 
 ROOTCFLAGS  = $(shell root-config --cflags)
 ROOTLIBS    = $(shell root-config --libs)

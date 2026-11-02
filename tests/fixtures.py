@@ -4,6 +4,7 @@ from array import array
 from dataclasses import dataclass
 from pathlib import Path
 import struct
+import shutil
 import subprocess
 
 import ROOT
@@ -33,6 +34,19 @@ def checked_run(command, cwd=None):
     if result.returncode:
         raise RuntimeError(f"{command!r}\n{result.stdout}\n{result.stderr}")
     return result
+
+
+def copy_program(root, variant, stage):
+    """Keep the repository layout so shared headers and Make dependencies resolve."""
+    source = root / variant / stage
+    source.mkdir(parents=True)
+    for path in (REPO / variant / stage).iterdir():
+        if path.name == "Makefile" or path.suffix in (".cpp", ".h"):
+            shutil.copyfile(path, source / path.name)
+    common = root / "common"
+    common.mkdir(exist_ok=True)
+    shutil.copyfile(REPO / "common/CommandLine.h", common / "CommandLine.h")
+    return source
 
 
 def write_sorted(path, hits, tree_name="tr", omit=None, wrong_energy_type=False, waveform=False,

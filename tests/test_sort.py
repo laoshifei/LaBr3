@@ -2,12 +2,11 @@
 
 from pathlib import Path
 import os
-import shutil
 import subprocess
 import tempfile
 import unittest
 
-from fixtures import (ROOT, Hit, REPO, VARIANTS, checked_run, read_events, read_sorted_hits,
+from fixtures import (ROOT, Hit, REPO, VARIANTS, checked_run, copy_program, read_events, read_sorted_hits,
                       write_channel_hits)
 
 
@@ -30,10 +29,7 @@ class SortTests(unittest.TestCase):
         cls.work = Path(cls.storage.name)
         cls.executables = {}
         for variant in VARIANTS:
-            source = cls.work / variant
-            source.mkdir()
-            for name in ("main.cpp", "Sort.cpp", "Sort.h", "set.h", "Makefile"):
-                shutil.copyfile(REPO / variant / "sort" / name, source / name)
+            source = copy_program(cls.work, variant, "sort")
             binary = source / "sort"
             checked_run(["make", "-B", "-C", str(source)])
             cls.executables[variant] = binary

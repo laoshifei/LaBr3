@@ -1,6 +1,6 @@
 out = alignment
 
-sourcefile = main.cpp Alignment.h Alignment.cpp set.h
+sourcefile = main.cpp Alignment.h Alignment.cpp set.h ../../common/CommandLine.h
 
 ROOTCFLAGS  = $(shell root-config --cflags)
 ROOTLIBS    = $(shell root-config --libs) -lSpectrum

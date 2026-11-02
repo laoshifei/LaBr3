@@ -4,13 +4,12 @@ from dataclasses import replace
 from pathlib import Path
 import os
 import re
-import shutil
 import struct
 import subprocess
 import tempfile
 import unittest
 
-from fixtures import (ROOT, Hit, RawRecord, REPO, VARIANTS, checked_run,
+from fixtures import (ROOT, Hit, RawRecord, REPO, VARIANTS, checked_run, copy_program,
                       encode_bin_record, read_raw_hits, write_bin)
 
 
@@ -24,10 +23,7 @@ class RawConversionTests(unittest.TestCase):
         cls.input_path = cls.work / "input/run_1/UNFILTERED/Data_run_1.BIN"
         cls.input_path.parent.mkdir(parents=True)
         for variant in VARIANTS:
-            source = cls.work / variant
-            source.mkdir()
-            for name in ("main.cpp", "Makefile"):
-                shutil.copyfile(REPO / variant / "raw2root" / name, source / name)
+            source = copy_program(cls.work, variant, "raw2root")
             config = (REPO / variant / "raw2root/set.h").read_text()
             config = re.sub(r'^#define FILE_PATH "[^"]+"',
                             f'#define FILE_PATH "{cls.work / "input"}"', config, flags=re.M)

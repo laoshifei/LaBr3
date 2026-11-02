@@ -1,25 +1,22 @@
 #include "Build.h"
+#include "../../common/CommandLine.h"
 #include "TString.h"
 
-#include <cerrno>
-#include <cstdlib>
 #include <iostream>
-#include <limits>
-#include <stdexcept>
 
 int main(int argc, char const *argv[])
 {
   try{
-    if(argc != 2) throw std::runtime_error("usage: build RUN_NUMBER");
-    char *end = nullptr;
-    errno = 0;
-    const long run = std::strtol(argv[1], &end, 10);
-    if(errno || end == argv[1] || *end != '\0' ||
-       run < 0 || run > std::numeric_limits<int>::max()){
-      throw std::runtime_error("invalid run number");
+    const auto options = labr3::ParseCommandLine(argc, argv, "build");
+    if(options.help){
+      std::cout << labr3::CommandUsage("build");
+      return 0;
     }
-    const std::string input = TString::Format("../sort/run%04d_sort.root", static_cast<int>(run)).Data();
-    const std::string output = TString::Format("./run%04d_build.root", static_cast<int>(run)).Data();
+    const std::string input = options.Value("--input", options.run < 0 ? "" :
+      TString::Format("../sort/run%04d_sort.root", options.run).Data());
+    const std::string output = options.Value("--output", options.run < 0 ? "" :
+      TString::Format("./run%04d_build.root", options.run).Data());
+    labr3::CheckOutputPath(output, {input});
     std::cout << "build " << input << " -> " << output << std::endl;
     Build builder(input, output);
     builder.Process();

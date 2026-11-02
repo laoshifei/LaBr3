@@ -16,6 +16,7 @@
 #include "TTree.h"
 
 #include "set.h"
+#include "../../common/CommandLine.h"
 
 namespace {
 
@@ -69,7 +70,7 @@ public:
   }
 };
 
-void Convert(int run)
+void Convert(const std::string &raw_name, const std::string &output_name)
 {
   static_assert(sizeof(Short_t) == 2 && sizeof(UShort_t) == 2 &&
                 sizeof(UInt_t) == 4 && sizeof(Long64_t) == 8 &&
@@ -82,10 +83,7 @@ void Convert(int run)
     throw std::runtime_error("BIN decoding requires a little-endian host");
   }
 
-  const std::string raw_name = std::string(FILE_PATH) + "/run_" +
-    std::to_string(run) + "/" + FILE_HEAD + std::to_string(run) + ".BIN";
-  const std::string output_name = TString::Format("run%04d.root", run).Data();
-  std::cout << "analysis " << raw_name << std::endl;
+  std::cout << "raw2root " << raw_name << " -> " << output_name << std::endl;
   std::unique_ptr<FILE, decltype(&std::fclose)> input(
     std::fopen(raw_name.c_str(), "rb"), &std::fclose);
   if(!input){
@@ -196,15 +194,18 @@ void Convert(int run)
 int main(int argc, char *argv[])
 {
   try{
-    if(argc != 2) throw std::runtime_error("usage: raw2root RUN_NUMBER");
-    char *end = nullptr;
-    errno = 0;
-    const long run = std::strtol(argv[1], &end, 10);
-    if(errno || end == argv[1] || *end != '\0' ||
-       run < 0 || run > std::numeric_limits<int>::max()){
-      throw std::runtime_error("invalid run number");
+    const auto options = labr3::ParseCommandLine(argc, argv, "raw2root");
+    if(options.help){
+      std::cout << labr3::CommandUsage("raw2root");
+      return 0;
     }
-    Convert(static_cast<int>(run));
+    const std::string default_input = options.run < 0 ? "" : std::string(FILE_PATH) + "/run_" +
+      std::to_string(options.run) + "/" + FILE_HEAD + std::to_string(options.run) + ".BIN";
+    const std::string input = options.Value("--input", default_input);
+    const std::string output = options.Value("--output", options.run < 0 ? "" :
+      TString::Format("run%04d.root", options.run).Data());
+    labr3::CheckOutputPath(output, {input});
+    Convert(input, output);
     return 0;
   } catch(const std::exception &error){
     std::cerr << "raw2root: " << error.what() << std::endl;

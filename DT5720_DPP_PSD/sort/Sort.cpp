@@ -161,9 +161,9 @@ public:
 
 }  // namespace
 
-void GetCaliPar(Double_t p[MAX_CHANNELS][3])
+void GetCaliPar(Double_t p[MAX_CHANNELS][3], const std::string &filename)
 {
-  ReadParameters(LABR3_CALI_DATA, [p](std::istream &row, int channel,
+  ReadParameters(filename.c_str(), [p](std::istream &row, int channel,
                                      const std::string &location) {
     Double_t chi2 = 0.;
     if(!(row >> p[channel][0] >> p[channel][1] >> p[channel][2] >> chi2) ||
@@ -174,9 +174,9 @@ void GetCaliPar(Double_t p[MAX_CHANNELS][3])
   });
 }
 
-void GetTSOffset(Long64_t p[MAX_CHANNELS])
+void GetTSOffset(Long64_t p[MAX_CHANNELS], const std::string &filename)
 {
-  ReadParameters(LABR3_TS_OFFSET_DATA, [p](std::istream &row, int channel,
+  ReadParameters(filename.c_str(), [p](std::istream &row, int channel,
                                           const std::string &location) {
     long double offset = 0.;
     if(!(row >> offset)){
@@ -186,11 +186,12 @@ void GetTSOffset(Long64_t p[MAX_CHANNELS])
   });
 }
 
-Sort::Sort(const std::string &filename_in, const std::string &filename_out)
+Sort::Sort(const std::string &filename_in, const std::string &filename_out,
+           const std::string &calibration_file, const std::string &offsets_file)
   : output_name(filename_out)
 {
-  GetCaliPar(par);
-  GetTSOffset(ts_offset);
+  GetCaliPar(par, calibration_file);
+  GetTSOffset(ts_offset, offsets_file);
   file_in.reset(TFile::Open(filename_in.c_str(), "READ"));
   if(!file_in || file_in->IsZombie()){
     throw std::runtime_error("cannot open input " + filename_in);

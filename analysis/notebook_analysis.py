@@ -73,6 +73,7 @@ def rebuild_events(sorted_path, variant, run, output_root):
     files = [REPO / variant / "build" / name
              for name in ("Makefile", "Build.cpp", "Build.h", "main.cpp", "set.h")]
     files += [REPO / "analysis" / name for name in ("EventAnalysis.h", "notebook_analysis.py")]
+    files += [REPO / "common/CommandLine.h"]
     files += [REPO / variant / "sort" / name
               for name in ("LaBr3_cali.dat", "LaBr3_ts_offset.dat")]
     snapshots = {}
@@ -86,16 +87,12 @@ def rebuild_events(sorted_path, variant, run, output_root):
     try:
         with tempfile.TemporaryDirectory(prefix="labr3-real-build-") as temporary:
             work = Path(temporary)
-            (work / "sort").mkdir()
-            (work / "build").mkdir()
-            (work / "sort" / f"run{run:04d}_sort.root").symlink_to(sorted_path)
             binary = work / "build_events"
             # Compile the recorded snapshot, so the manifest describes the executed source.
             build_source = output / "source_snapshot" / variant / "build"
             log += _command(["make", "-B", f"out={binary}"], build_source)
-            log += _command([str(binary), str(run)], work / "build")
             built = output / f"run{run:04d}_build.root"
-            shutil.copy2(work / "build" / built.name, built)
+            log += _command([str(binary), "--input", str(sorted_path), "--output", str(built)], work)
         if file_identity(sorted_path)["sha256"] != source_info["sha256"]:
             raise RuntimeError("Input changed during event building")
     except Exception as error:

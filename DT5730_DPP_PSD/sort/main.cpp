@@ -1,27 +1,27 @@
 #include "Sort.h"
-
-#include <cerrno>
-#include <cstdlib>
-#include <iostream>
-#include <limits>
-#include <stdexcept>
+#include "../../common/CommandLine.h"
 #include "TString.h"
+
+#include <iostream>
 
 int main(int argc, char const *argv[])
 {
   try{
-    if(argc != 2) throw std::runtime_error("usage: sort RUN_NUMBER");
-    char *end = nullptr;
-    errno = 0;
-    const long run = std::strtol(argv[1], &end, 10);
-    if(errno || end == argv[1] || *end != '\0' ||
-       run < 0 || run > std::numeric_limits<int>::max()){
-      throw std::runtime_error("invalid run number");
+    const auto options = labr3::ParseCommandLine(argc, argv, "sort", {"--calibration", "--offsets"});
+    if(options.help){
+      std::cout << labr3::CommandUsage("sort");
+      return 0;
     }
-    const std::string input = TString::Format("../raw2root/run%04d.root", static_cast<int>(run)).Data();
-    const std::string output = TString::Format("./run%04d_sort.root", static_cast<int>(run)).Data();
-    std::cout << "sort " << input << std::endl;
-    Sort sorter(input, output);
+    const std::string input = options.Value("--input", options.run < 0 ? "" :
+      TString::Format("../raw2root/run%04d.root", options.run).Data());
+    const std::string output = options.Value("--output", options.run < 0 ? "" :
+      TString::Format("./run%04d_sort.root", options.run).Data());
+    const std::string calibration = options.Value("--calibration", LABR3_CALI_DATA);
+    const std::string offsets = options.Value("--offsets", LABR3_TS_OFFSET_DATA);
+    labr3::CheckOutputPath(output, {input, calibration, offsets});
+    std::cout << "sort " << input << " -> " << output << "\ncalibration " << calibration
+              << "\ntime offsets " << offsets << std::endl;
+    Sort sorter(input, output, calibration, offsets);
     sorter.Process();
     return 0;
   } catch(const std::exception &error){

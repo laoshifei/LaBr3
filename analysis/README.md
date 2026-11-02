@@ -45,6 +45,8 @@ Notebook 会对几个时间拟合区间重复拟合，但不把其跨度当作�
 ## 输出与重跑
 
 Notebook 从已有的排序 ROOT 文件重建事件，重建程序由本次保存的源码快照编译。
+快照包括共享命令行头文件 `common/CommandLine.h`；重建使用显式 `--input`、`--output`
+路径，不要求在临时目录中复刻原有运行编号目录布局。
 每次从头执行创建一个独立的结果目录；参数文件快照不证明它们曾用于历史排序。
 导出 `results.json`、`fits.csv`、`histograms.root`、PNG/PDF 图像、源码快照和构建日志。
 输入 ROOT 和旧事件文件保持原样；Notebook 检查其 SHA-256 未变。

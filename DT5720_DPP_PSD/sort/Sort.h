@@ -7,8 +7,8 @@
 #include <memory>
 #include <string>
 
-void GetCaliPar(Double_t p[MAX_CHANNELS][3]);
-void GetTSOffset(Long64_t p[MAX_CHANNELS]);
+void GetCaliPar(Double_t p[MAX_CHANNELS][3], const std::string &filename = LABR3_CALI_DATA);
+void GetTSOffset(Long64_t p[MAX_CHANNELS], const std::string &filename = LABR3_TS_OFFSET_DATA);
 
 struct Data {
   Short_t board;
@@ -19,7 +19,9 @@ struct Data {
 
 class Sort {
 public:
-  Sort(const std::string &filename_in, const std::string &filename_out);
+  Sort(const std::string &filename_in, const std::string &filename_out,
+       const std::string &calibration_file = LABR3_CALI_DATA,
+       const std::string &offsets_file = LABR3_TS_OFFSET_DATA);
   void Process();
 
 private:

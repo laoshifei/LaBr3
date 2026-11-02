@@ -37,10 +37,59 @@ keV 能量均报错并返回非零状态。通道范围为 0–7；`energy_keV` 
 文件；失败运行保留已有输出，成功运行会替换同名输出。
 
 需要安装提供 `root-config` 的 ROOT、C++ 编译器和 GNU Make。
+编译时保留完整源码目录结构，各阶段会引用 `common/CommandLine.h`。
 在各程序目录内执行 `make`，再以运行编号作为参数执行程序，例如在
 `DT5730_DPP_PHA/sort/` 中执行 `./sort 14`。
-输入、输出和参数文件使用相对路径，因此应从对应程序目录运行。
-首次转换前需根据本地数据位置及文件命名调整 `raw2root/set.h`。
+仅使用运行编号时，输入、输出及参数文件沿用原来的相对路径，应从对应程序目录运行。
+也可以使用下面的路径选项从任意目录运行，无需为数据路径修改 `raw2root/set.h`。
+
+## 运行时路径
+
+三种设备的四类程序使用同一组路径选项：
+
+```text
+raw2root [RUN_NUMBER] [--input FILE] [--output FILE]
+alignment [RUN_NUMBER] [--input FILE] [--output FILE] [--reference CHANNEL]
+sort [RUN_NUMBER] [--input FILE] [--output FILE] [--calibration FILE] [--offsets FILE]
+build [RUN_NUMBER] [--input FILE] [--output FILE]
+```
+
+任一程序都支持 `--help` 或 `-h`。同时指定 `--input` 和 `--output` 时可省略运行编号；
+带运行编号时可以只覆盖其中一个路径，未指定的路径保留原规则。选项与运行编号的
+先后顺序不限。未知选项、重复的路径或参数选项、空值、缺少选项值及多个运行编号会报错。
+
+所有相对路径都相对于**调用时的工作目录**。输入路径是完整文件名；`raw2root --input`
+直接读取指定的单个 BIN，不再拼接运行目录或文件前缀。输出父目录需提前创建，
+路径含空格时请加引号。输出不能与输入或排序参数文件指向同一个文件，符号链接及硬链接
+也会检查；其他已有输出仍按原规则在处理成功后替换。
+
+`sort` 的两份参数文件可分别覆盖。缺省值仍为当前工作目录的 `./LaBr3_cali.dat`
+与 `./LaBr3_ts_offset.dat`；从项目根目录或其他位置运行时，应显式传入适用的参数文件。
+
+下面展示从项目根目录运行各阶段的写法。将 BIN 路径和参数文件换为本次测量的实际文件，
+先编译相应目录内的程序，并按处理顺序执行；上一步失败时停止。
+
+```bash
+mkdir -p results/run0014
+./DT5730_DPP_PSD/raw2root/raw2root --input "/path/to/Data_run_14.BIN" --output results/run0014/raw.root
+./DT5730_DPP_PSD/alignment/alignment --input results/run0014/raw.root --output results/run0014/alignment.root --reference 2
+./DT5730_DPP_PSD/sort/sort --input results/run0014/raw.root --output results/run0014/sorted.root \
+  --calibration DT5730_DPP_PSD/sort/LaBr3_cali.dat --offsets DT5730_DPP_PSD/sort/LaBr3_ts_offset.dat
+./DT5730_DPP_PSD/build/build --input results/run0014/sorted.root --output results/run0014/events.root
+```
+
+三种配置各自的事件构建示例（在项目根目录运行，将输入换为对应采集配置的排序文件，
+并提前创建 `results/`）：
+
+| 配置 | 命令 |
+| --- | --- |
+| DT5720 PSD | `./DT5720_DPP_PSD/build/build --input data/DT5720_DPP_PSD/run0014_sort.root --output results/dt5720_events.root` |
+| DT5730 PSD | `./DT5730_DPP_PSD/build/build --input data/DT5730_DPP_PSD/run0009_sort.root --output results/dt5730_psd_events.root` |
+| DT5730 PHA | `./DT5730_DPP_PHA/build/build --input data/DT5730_DPP_PHA/run0014_sort.root --output results/dt5730_pha_events.root` |
+
+从其他工作目录调用时，对程序、输入、输出和参数文件使用绝对路径即可。
+分析读取器已有 `labr3::EventReader("/path/to/events.root")` 文件参数；Notebook 的
+输入及结果目录继续由参数单元指定。
 
 ## ROOT 输入约定
 

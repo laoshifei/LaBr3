@@ -14,6 +14,7 @@ python3 tests/test_build.py
 python3 tests/test_raw2root.py
 python3 tests/test_sort.py
 python3 tests/test_alignment.py
+python3 tests/test_paths.py
 python3 tests/test_analysis.py
 python3 tests/test_peak_fit.py
 ```
@@ -82,6 +83,17 @@ TChain 检查包括后续文件缺失必要分支时的错误处理。
 并读回导出的 JSON 和 ROOT 文件核对计数与配置。拟合及 Notebook 另需 NumPy、Matplotlib；
 不依赖 SciPy。
 
+`test_paths.py` 的 15 项检查在临时源码副本中编译三种设备的全部四类程序，验证：
+
+- 从项目根目录和无关工作目录使用绝对路径，从无关目录使用相对路径；输入和输出含空格及中文。
+- 显式路径时省略运行编号；保留运行编号并覆盖输入、输出或两者；分别覆盖两份排序参数。
+- 完整的合成 BIN → 通道树 → 排序树 → 事件树 → 共享分析，精确核对字段、事件分组和时间谱计数。
+- 帮助信息不依赖输入文件，错误/重复/缺值选项明确失败，错误文件路径及缺失输出目录保留输入和旧输出。
+- 输出与输入、刻度或偏移文件重合时拒绝，包括相对路径别名、符号链接和硬链接。
+- Notebook 从保存的源码快照编译重建事件，快照包含 `common/CommandLine.h`，输入校验值保持不变。
+
+这些完整链检查使用已知字段和参数的合成数据；真实实验 BIN 的处理链仍待实验配置核验后重跑。
+
 2026-09-28 在 ROOT 6.40.04、Python 3.14.4 上运行全部 **45 个检查方法**通过，
 包括 22 项构建、4 项 BIN 转换、13 项分析和 6 项拟合/导出检查。
 构建、BIN 转换和旧宏兼容性检查分别覆盖三套设备实现。
@@ -119,6 +131,14 @@ env PATH="/opt/root/6.34.10/bin:$PATH" \
 `/tmp/labr3-validation-20261030/contracts-scalar-tests.log`（61 项，含重复复查的 28 项构建）。
 两组去重覆盖 139 项，均无跳过项；输出目录不可写的检查以 UID 1000 实际执行。
 仍使用上述临时环境和完整复查命令；全部小样本和二进制均放在临时目录，未重跑真实实验数据。
+
+2026-11-01 完成 P1-01 后，原有 **139 项**回归与新增 **15 项**路径检查全部通过，
+共 **154 个检查方法，无跳过项**。沿用 Python 3.13.5 / ROOT 6.34.10 的上述临时环境，
+分别运行 `test_paths.py`，以及 `test_alignment.py`、`test_sort.py`、`test_build.py`、
+`test_raw2root.py`、`test_analysis.py`、`test_peak_fit.py`。
+日志为 `/tmp/labr3-validation-20261101/paths-tests.log` 和 `regression-tests.log`。
+上面的完整复查命令已包含新增检查。全链与 Notebook 快照检查使用合成数据，
+没有重跑真实实验 BIN 或更新旧 Notebook 输出。
 
 事件构建必须遵循以下规则：时间戳按 ps 存储；以事件首条记录起算，严格小于
 50 ns 的记录进入同一事件；恰好 50 ns 的记录开启下一事件。容量为 8；同窗第 9 条
