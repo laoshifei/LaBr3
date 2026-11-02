@@ -1,0 +1,14 @@
+{
+  "channel_a": 2,
+  "channel_b": 3,
+  "board_a": -1,
+  "board_b": -1,
+  "gates_a": [],
+  "gates_b": [],
+  "energy_bins": 2048,
+  "energy_low": 0.0,
+  "energy_high": 4096.0,
+  "time_bins": 400,
+  "time_low": -20.0,
+  "time_high": 20.0
+}

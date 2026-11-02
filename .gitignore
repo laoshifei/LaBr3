@@ -8,6 +8,7 @@
 *.bin
 
 # Compiled programs; keep the source directories named build
+/.build/
 /DT*/raw2root/raw2root
 /DT*/alignment/alignment
 /DT*/sort/sort

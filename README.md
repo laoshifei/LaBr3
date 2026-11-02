@@ -36,12 +36,38 @@ keV 能量均报错并返回非零状态。通道范围为 0–7；`energy_keV` 
 只读取所需的四个标量分支，不读取可选波形。成功处理并完成写入后才发布最终
 文件；失败运行保留已有输出，成功运行会替换同名输出。
 
+## 编译
+
 需要安装提供 `root-config` 的 ROOT、C++ 编译器和 GNU Make。
-编译时保留完整源码目录结构，各阶段会引用 `common/CommandLine.h`。
-在各程序目录内执行 `make`，再以运行编号作为参数执行程序，例如在
-`DT5730_DPP_PHA/sort/` 中执行 `./sort 14`。
-仅使用运行编号时，输入、输出及参数文件沿用原来的相对路径，应从对应程序目录运行。
-也可以使用下面的路径选项从任意目录运行，无需为数据路径修改 `raw2root/set.h`。
+保留完整源码目录结构，各阶段会引用 `common/CommandLine.h`。
+在项目根目录执行：
+
+```bash
+make -j4                       # 编译三种配置的全部 12 个程序
+make DT5730_DPP_PSD             # 只编译一种配置的四个阶段
+make DT5730_DPP_PSD/sort        # 只编译一个程序
+make check-env                 # 只检查编译器和 ROOT 配置命令
+make help
+```
+
+根目录入口调用各阶段现有的 Makefile，产物集中放在 `.build/<配置>/<阶段>`，例如
+`.build/DT5730_DPP_PSD/sort`；`.build/` 已忽略，不覆盖源码目录中的历史可执行文件。
+重复执行会按源码、头文件和阶段 Makefile 的修改时间增量编译，`-j4` 最多同时编译四个程序。
+缺少编译器、`root-config` 或配置命令执行失败时，在启动编译前报错；编译或链接失败也返回非零状态。
+
+默认使用 PATH 中的 `g++` 和 `root-config`。可先加载所用 ROOT 安装的 `thisroot.sh`，
+也可以显式指定工具；`CXX` 和 `ROOT_CONFIG` 各接受一个可执行文件名或绝对路径：
+
+```bash
+make -j4 ROOT_CONFIG=/path/to/root/bin/root-config CXX=g++
+make -C /path/to/LaBr3 DT5730_DPP_PSD
+```
+
+更换编译器、ROOT 安装或编译选项后，用 `make -B` 强制重编，或在其后指定设备/阶段目标。
+各程序目录内原有的 `make` 仍可独立使用，也支持 `ROOT_CONFIG`；其产物仍在该程序目录。
+例如在 `DT5730_DPP_PHA/sort/` 执行 `make` 后运行 `./sort 14`。
+仅使用运行编号时，输入、输出和参数沿用调用目录下的历史相对路径。
+使用集中产物从根目录运行时，推荐显式传入下面的路径选项，无需修改 `raw2root/set.h`。
 
 ## 运行时路径
 
@@ -67,15 +93,16 @@ build [RUN_NUMBER] [--input FILE] [--output FILE]
 与 `./LaBr3_ts_offset.dat`；从项目根目录或其他位置运行时，应显式传入适用的参数文件。
 
 下面展示从项目根目录运行各阶段的写法。将 BIN 路径和参数文件换为本次测量的实际文件，
-先编译相应目录内的程序，并按处理顺序执行；上一步失败时停止。
+先编译相应配置，并按处理顺序执行；上一步失败时停止。
 
 ```bash
+make DT5730_DPP_PSD
 mkdir -p results/run0014
-./DT5730_DPP_PSD/raw2root/raw2root --input "/path/to/Data_run_14.BIN" --output results/run0014/raw.root
-./DT5730_DPP_PSD/alignment/alignment --input results/run0014/raw.root --output results/run0014/alignment.root --reference 2
-./DT5730_DPP_PSD/sort/sort --input results/run0014/raw.root --output results/run0014/sorted.root \
+./.build/DT5730_DPP_PSD/raw2root --input "/path/to/Data_run_14.BIN" --output results/run0014/raw.root
+./.build/DT5730_DPP_PSD/alignment --input results/run0014/raw.root --output results/run0014/alignment.root --reference 2
+./.build/DT5730_DPP_PSD/sort --input results/run0014/raw.root --output results/run0014/sorted.root \
   --calibration DT5730_DPP_PSD/sort/LaBr3_cali.dat --offsets DT5730_DPP_PSD/sort/LaBr3_ts_offset.dat
-./DT5730_DPP_PSD/build/build --input results/run0014/sorted.root --output results/run0014/events.root
+./.build/DT5730_DPP_PSD/build --input results/run0014/sorted.root --output results/run0014/events.root
 ```
 
 三种配置各自的事件构建示例（在项目根目录运行，将输入换为对应采集配置的排序文件，
@@ -83,13 +110,88 @@ mkdir -p results/run0014
 
 | 配置 | 命令 |
 | --- | --- |
-| DT5720 PSD | `./DT5720_DPP_PSD/build/build --input data/DT5720_DPP_PSD/run0014_sort.root --output results/dt5720_events.root` |
-| DT5730 PSD | `./DT5730_DPP_PSD/build/build --input data/DT5730_DPP_PSD/run0009_sort.root --output results/dt5730_psd_events.root` |
-| DT5730 PHA | `./DT5730_DPP_PHA/build/build --input data/DT5730_DPP_PHA/run0014_sort.root --output results/dt5730_pha_events.root` |
+| DT5720 PSD | `./.build/DT5720_DPP_PSD/build --input data/DT5720_DPP_PSD/run0014_sort.root --output results/dt5720_events.root` |
+| DT5730 PSD | `./.build/DT5730_DPP_PSD/build --input data/DT5730_DPP_PSD/run0009_sort.root --output results/dt5730_psd_events.root` |
+| DT5730 PHA | `./.build/DT5730_DPP_PHA/build --input data/DT5730_DPP_PHA/run0014_sort.root --output results/dt5730_pha_events.root` |
 
 从其他工作目录调用时，对程序、输入、输出和参数文件使用绝对路径即可。
 分析读取器已有 `labr3::EventReader("/path/to/events.root")` 文件参数；Notebook 的
 输入及结果目录继续由参数单元指定。
+
+## 批处理入口
+
+`scripts/run_pipeline.py` 将选定阶段按顺序运行，使用 Python 3.8+ 标准库调度现有程序。
+先用根目录 Makefile 编译；默认从项目的 `.build/<配置>/<阶段>` 读取可执行文件，
+也可用 `--bin-dir` 指向包含相同目录结构的其他编译产物。
+只有选择 `analysis` 时，运行脚本的 Python 才需要可导入的 PyROOT 和 NumPy。
+
+以下命令处理一个 BIN，显式使用本次测量适用的刻度及偏移文件。
+输出目录必须尚不存在；脚本会创建目录及其父目录，重复执行需换一个结果目录名：
+
+```bash
+make DT5730_DPP_PSD
+python3 -B scripts/run_pipeline.py \
+  --variant DT5730_DPP_PSD --run 14 --input "/path/to/Data_run_14.BIN" \
+  --calibration "/path/to/calibration.dat" --offsets "/path/to/offsets.dat" \
+  --output-dir results/run0014_attempt01
+```
+
+`--run` 是 0–2147483647 的记录标签，不用于猜测输入路径、判断设备或确认采集完整性。
+设备必须为三种配置之一。所有用户提供的相对路径按调用时的工作目录解析；
+从其他目录执行时使用脚本的绝对路径即可。`--help` 不要求 ROOT 或数据文件。
+
+`--input-kind` 声明输入所处阶段，缺省为 `bin`。未给 `--stages` 时按下表选择：
+
+| 输入种类 | 输入内容 | 默认阶段 |
+| --- | --- | --- |
+| `bin` | 一个完整 BIN 文件 | `raw2root,sort,build` |
+| `raw` | 按通道保存的原始 ROOT 树 | `sort,build` |
+| `sorted` | 已排序、已修正的标量命中树 | `build` |
+| `events` | 已构建的事件数组树 | `analysis` |
+
+可用 `--stages` 显式选择阶段，顺序为 `raw2root,alignment,sort,build,analysis`，
+不能重复、倒序或跳过所需输入。例如从排序文件开始只构建事件：
+
+```bash
+python3 -B scripts/run_pipeline.py \
+  --variant DT5730_DPP_PHA --run 14 --input data/DT5730_DPP_PHA/run0014_sort.root \
+  --input-kind sorted --stages build --output-dir results/pha_run0014_rebuild01
+```
+
+`alignment` 是可选的检查分支，排序仍读取原始通道树；它不会自动生成或修改偏移参数。
+选择 `sort` 必须同时给 `--calibration` 和 `--offsets`；选择 `analysis` 必须给
+`--analysis-config`。参数文件先复制到结果目录，再让子进程读取副本。
+`--reference` 只用于 `alignment`，省略时保留编号最小非空通道的规则。
+不参与所选阶段的参数选项会报错，避免看似指定却没有使用。
+
+若需要全部阶段及能谱、时间谱导出，给上述 BIN 命令增加：
+
+```text
+--stages raw2root,alignment,sort,build,analysis --reference 2
+--analysis-config analysis/example_settings.json
+```
+
+这两行表示附加参数，需接到同一条命令上。[分析配置示例](analysis/example_settings.json)
+使用通道 2/3、不限制板号、不施加能量门；应按测量配置调整，格式见
+[分析说明](analysis/README.md)。分析输出计数与直方图，本入口不执行峰拟合。
+
+成功时生成所选阶段的 `raw.root`、`alignment.root`、`sorted.root`、`events.root`，
+以及可选的 `analysis/results.json`、`histograms.root` 和只含表头的 `fits.csv`。
+`logs/` 保存各子进程的标准输出与错误；`parameters/` 保存实际读取的参数副本；
+`manifest.json` 保存输入/输出/二进制 SHA-256、命令参数、耗时、退出码、Git 工作区状态和阶段状态。
+只有全部所选阶段成功且输入及可执行文件哈希未变，整体状态才为 `succeeded`。
+
+任一步失败即停止，后续阶段记为 `not_run`；已完成阶段和失败日志保留供核查，
+整体标为 `failed` 并返回非零退出码。`--timeout SECONDS` 可限定每阶段耗时，默认不限时；
+超时、Ctrl-C 或 SIGTERM 会停止当前子进程组。强制杀死进程或断电可能留下 `running`，
+应视为未完成，不能按输出文件存在就认定成功。
+
+本入口一次只处理一个输入文件，不自动寻找或合并多个输入。识别到 CAEN 数字续卷或
+同目录同名前缀的数字分卷时拒绝执行，等待 P1-07 的输入清单支持。
+孤立或改名的首卷无法靠文件名证明完整，故所有运行的 `scope.acquisition_complete`
+均为 `null`；`succeeded` 仅表示对指定文件完成所选阶段。
+当前保存的是预编译二进制哈希，Git 信息描述运行时工作区，并不证明二进制的构建来源；
+源码与构建来源绑定、各阶段完整计数留待 P1-05。
 
 ## BIN 格式、命名与输入范围
 

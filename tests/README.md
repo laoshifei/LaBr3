@@ -17,11 +17,28 @@ python3 tests/test_alignment.py
 python3 tests/test_paths.py
 python3 tests/test_analysis.py
 python3 tests/test_peak_fit.py
+python3 tests/test_make.py
+python3 tests/test_pipeline.py
+python3 tests/test_pipeline_integration.py
 ```
 
 `fixtures.py` 生成带已知字段值的 BIN 和 ROOT 文件。程序通过已有 Makefile
 编译到临时目录，并作为子进程运行；检查结束后删除测试生成的文件。
 原始数据转换测试只在临时副本中替换输入路径，不修改项目的 `set.h`。
+
+`test_make.py` 的 8 项检查不依赖 PyROOT 或 ROOT 安装，使用临时源码副本和模拟工具验证
+根目录编译入口：并行编译全部 12 个程序、按设备/阶段选择、重复执行不重编、
+源码/Makefile/共享头文件触发重编，以及缺失或失效的编译器/ROOT 配置命令、编译失败的传播。
+同时覆盖带空格的仓库和工具路径、从其他工作目录执行 `make -C`，以及 12 个阶段原有的
+独立编译和 `OBJ`/`out` 输出覆盖。模拟工具检查用于验证编译调度，不能代替真实 C++ 编译和运行。
+
+`test_pipeline.py` 的 16 项检查使用临时可执行脚本，不依赖 ROOT，覆盖批处理阶段顺序、
+显式参数及副本、输出目录保护、输入/产物哈希、已知分卷拒绝、失败停止、缺失产物、
+输入变化、超时及 SIGTERM 中断，以及分析 JSON 的类型与范围检查。
+`test_pipeline_integration.py` 的 5 项检查通过根目录入口在临时源码副本中编译全部 12 个程序，
+运行三种配置的 BIN → 对齐/排序 → 构建 → 分析，逐字段核对结果、筛选计数和时间谱。
+还覆盖从三个 ROOT 阶段起跑、截断 BIN、无效偏移文件和错误阶段的分析输入。
+相对路径从项目根目录和外部目录调用，目录及文件名包含空格和中文；原输入和参数哈希不变。
 
 `test_build.py` 的 29 项检查使用显式列出的预期事件分组，逐项比较板号、通道、能量和时间戳，
 并检查输出树的名称、标题、分支类型、多重数及记录总数。覆盖：
@@ -152,6 +169,48 @@ env PATH="/opt/root/6.34.10/bin:$PATH" \
 可在项目根目录用 `python3 -B /tmp/labr3-data-format-20261102/audit_run4.py` 复查只读分卷审阅；
 编译及单卷调用的完整参数记录在 `decoder-check.log`。
 重要计数、哈希、配置来源和适用范围已保存在 [真实样本记录](../docs/runs.md)。
+
+同日完成 P1-03 后，执行 `python3 -B tests/test_make.py -v`，新增 **8 项**编译入口检查通过。
+在 ROOT 6.34.10 下实际执行以下命令，三种配置的 **12 个程序全部编译成功**：
+
+```bash
+make -j4 ROOT_CONFIG=/opt/root/6.34.10/bin/root-config
+```
+
+根目录产物保存在 `.build/`。再次从 `/tmp` 通过 `make -C` 调用，全部产物的修改时间不变；
+本机 `DT5720_DPP_PSD/raw2root/set.h` 和仓库中两份历史已跟踪二进制的 SHA-256 也保持不变。
+复用 `test_paths.py` 的断言，将可执行文件指向集中产物，复查 **4 个检查方法**通过：
+12 个程序的帮助入口、三种配置在根目录和外部目录的完整合成处理链、相对路径处理链，
+以及 Notebook 源码快照独立编译。链路检查包含解码、对齐、排序、构建及分析的字段和计数核对。
+本次没有重复运行其余既有回归，也没有重新处理真实实验数据。
+
+临时日志目录为 `/tmp/labr3-validation-20261102/`：`make-all.log`、`make-incremental.log`、
+`unified-pipeline.log`；适配现有检查到集中产物的脚本为 `verify_unified_build.py`。
+日志中三份解码程序各有一条已有的 `fclose` 模板参数属性警告，编译退出状态均为零。
+临时脚本仍存在、且上述编译已完成时，可复查：
+
+```bash
+env PATH="/opt/root/6.34.10/bin:$PATH" PYTHONDONTWRITEBYTECODE=1 \
+    MPLCONFIGDIR=/tmp/labr3-validation-20261030/matplotlib \
+    /tmp/labr3-validation-20261030/bin/python -B \
+    /tmp/labr3-validation-20261102/verify_unified_build.py
+```
+
+同日完成 P1-04 后，新增 **16 项调度检查和 5 项实际程序集成检查全部通过**。
+调度组执行 `python3 -B tests/test_pipeline.py -v`；集成组沿用上述 ROOT/Python 环境：
+
+```bash
+env PATH="/opt/root/6.34.10/bin:$PATH" PYTHONDONTWRITEBYTECODE=1 \
+    MPLCONFIGDIR=/tmp/labr3-validation-20261030/matplotlib \
+    /tmp/labr3-validation-20261030/bin/python -B tests/test_pipeline_integration.py -v
+```
+
+集成组先在临时源码副本中并行编译 12 个程序，再通过正式批处理 CLI 调用。
+三种配置均从已知 BIN 得到 4 条校准命中、2 个双重事件，指定门选出 1 对，时间谱均值为 0 ns；
+同时核对板号、通道、能量、整数 ps 时间戳、对齐计数及原始输入/参数哈希。
+其他用例验证从原始通道树、排序树、事件树开始，以及截断输入、坏参数和错误分析输入的停止行为。
+集成日志为 `/tmp/labr3-validation-20261102/pipeline-integration.log`。
+本轮未重跑其余既有检查，没有重新处理实验 BIN、修改历史 ROOT 或更新旧 Notebook 输出。
 
 事件构建必须遵循以下规则：时间戳按 ps 存储；以事件首条记录起算，严格小于
 50 ns 的记录进入同一事件；恰好 50 ns 的记录开启下一事件。容量为 8；同窗第 9 条

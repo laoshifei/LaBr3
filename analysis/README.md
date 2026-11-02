@@ -4,6 +4,28 @@
 `notebook_analysis.py` 负责运行快照、事件重建、拟合、Matplotlib 绘图和结果导出。
 入口示例是 [真实数据 Notebook](../jupyter/02_real_run_energy_and_timing.ipynb)。
 
+## 批处理分析
+
+`run_analysis.py` 为根目录批处理入口提供事件计数、能谱和时间谱导出，也可独立执行：
+
+```bash
+python3 -B analysis/run_analysis.py --input /path/to/events.root \
+  --config analysis/example_settings.json --output-dir results/analysis_attempt01
+```
+
+需要 PyROOT 和 NumPy；不需要 Matplotlib。输出目录必须尚不存在。
+配置为 JSON 对象，允许的字段及示例见 [example_settings.json](example_settings.json)：
+`channel_a/b`、`board_a/b`、`energy_bins/low/high`、`time_bins/low/high`、`gates_a/b`。
+门条件写为 `[[low, high], ...]`，例如 `"gates_a": [[400, 700], [1000, 1200]]`；
+能量数值沿用输入树的存储单位，时间谱范围单位为 ns。
+未知或重复字段、错误类型、非有限数值和非法门范围会被拒绝。
+省略字段使用共享 C++ 分析配置的默认值；`results.json` 保存实际生效的全部字段。
+
+输出包括 `results.json`、`histograms.root` 和只含表头的 `fits.csv`，其中 `fits` 为空。
+这项任务不执行局部峰拟合、绘图或推断探测器分辨率；这些功能继续由 Notebook 提供。
+在全链中，`scripts/run_pipeline.py` 负责隔离运行目录、保存参数副本、记录退出状态并在失败时停止。
+批处理完整用法见 [项目说明](../README.md#批处理入口)。
+
 ## 数据与筛选约定
 
 输入树名为 `tr`，`m` 为 `UShort_t`；`board[m]`、`channel[m]` 为 `Short_t`，
